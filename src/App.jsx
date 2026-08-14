@@ -144,17 +144,17 @@ export default function App() {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to process receipts on the server.");
+        throw new Error(errorData.detail || "Server error during upload.");
       }
-      
+
       fetchSessionDetails(currentSessionId);
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error uploading receipts with Gemini:", err);
-      alert("Upload error: " + err.message);
+      alert("Upload failed: " + err.message);
     } finally {
       setIsUploading(false);
       e.target.value = null;
