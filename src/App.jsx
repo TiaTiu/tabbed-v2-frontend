@@ -140,14 +140,21 @@ export default function App() {
     }
 
     try {
-      await fetch(`${API_URL}/sessions/${currentSessionId}/receipts/gemini-bulk-upload`, {
+      const res = await fetch(`${API_URL}/sessions/${currentSessionId}/receipts/gemini-bulk-upload`, {
         method: "POST",
         body: formData,
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to process receipts on the server.");
+      }
+      
       fetchSessionDetails(currentSessionId);
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error uploading receipts with Gemini:", err);
+      alert("Upload error: " + err.message);
     } finally {
       setIsUploading(false);
       e.target.value = null;
@@ -230,19 +237,31 @@ export default function App() {
         </div>
       )}
 
-      <header className="border-b border-neutral-200 bg-white/85 backdrop-blur-md sticky top-0 z-40 px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="bg-black text-white p-2 rounded-lg shadow-sm">
-            <Receipt className="w-5 h-5"/>
+      <header className="border-b border-neutral-200 bg-white/85 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start space-x-3">
+          <div className="flex items-center space-x-3">
+            <div className="bg-black text-white p-2 rounded-lg shadow-sm">
+              <Receipt className="w-5 h-5"/>
+            </div>
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentSessionId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentSessionId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
+          
+          {sessionData && (
+            <button 
+              onClick={handleShareLink}
+              className="sm:hidden flex items-center gap-1.5 bg-black text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
+            >
+              {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
+              {copied ? "Copied" : "Share"}
+            </button>
+          )}
         </div>
 
         {currentSessionId && (
-          <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+          <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-auto justify-center">
             <button
               onClick={() => { setCurrentView('dashboard'); setActiveReceiptId(null); }}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 currentView === 'dashboard' && !activeReceiptId ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'
               }`}
             >
@@ -250,19 +269,19 @@ export default function App() {
             </button>
             <button
               onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); }}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 currentView === 'summary' ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'
               }`}
             >
-              <FileText className="w-3.5 h-3.5"/> Receipts & Summary Page
+              <FileText className="w-3.5 h-3.5"/> Summary
             </button>
           </div>
         )}
 
         {sessionData && (
-          <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
-              Active Session: <span className="text-black font-semibold">{sessionData?.name}</span>
+              Session: <span className="text-black font-semibold">{sessionData?.name}</span>
             </div>
             
             <button 
@@ -276,7 +295,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 max-w-6xl w-full mx-auto p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* LEFT COLUMN: CONTEXTUAL SIDEBAR */}
         <div className="space-y-6">
@@ -414,13 +433,13 @@ export default function App() {
             </div>
           ) : currentView === 'summary' ? (
             <div className="space-y-6">
-              <div className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-xs">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-2">Receipts & Itemized Breakdown</h2>
                 <p className="text-sm text-neutral-500 mb-6">Complete overview of all receipts, item allocations, and amounts paid in {sessionData?.name}.</p>
 
                 <div className="space-y-6">
                   {sessionData?.receipts?.map((r) => (
-                    <div key={r.id} className="bg-neutral-50 border border-neutral-200 p-6 rounded-2xl space-y-4">
+                    <div key={r.id} className="bg-neutral-50 border border-neutral-200 p-4 sm:p-6 rounded-2xl space-y-4">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200">
                         <div>
                           <h3 className="font-bold text-lg text-black">{r.title}</h3>
@@ -428,7 +447,7 @@ export default function App() {
                             Paid by: {r.payers?.length > 0 ? r.payers.map(p => `${p.participant?.name || 'Someone'} (${formatIDR(p.amount_paid)})`).join(', ') : <span className="text-amber-600 font-medium">Not specified</span>}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">Total Amount</span>
                           <span className="font-bold text-lg text-black">{formatIDR(r.total_amount)}</span>
                         </div>
@@ -468,7 +487,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-xs">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
                 </h3>
@@ -493,7 +512,7 @@ export default function App() {
               </div>
             </div>
           ) : activeReceipt ? (
-            <div className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-xs">
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
               <button
                 onClick={() => setActiveReceiptId(null)}
                 className="flex items-center text-sm font-medium text-neutral-500 hover:text-black transition-colors mb-6"
@@ -501,12 +520,12 @@ export default function App() {
                 <ArrowLeft className="w-4 h-4 mr-2"/> Back to Dashboard
               </button>
 
-              <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-6 border-b border-neutral-100 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-black tracking-tight">{activeReceipt.title}</h2>
                   <p className="text-sm text-neutral-500 mt-1">Assign items to one or multiple participants</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total Receipt</p>
                   <p className="text-2xl font-semibold text-black tracking-tight">{formatIDR(activeReceipt.total_amount)}</p>
                 </div>
@@ -515,7 +534,7 @@ export default function App() {
               <div className="space-y-4">
                 {activeReceipt.items?.map((item) => (
                   <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl">
-                    <div className="flex items-center justify-between gap-4 mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
@@ -551,25 +570,25 @@ export default function App() {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex items-center space-x-4">
-                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200">
+                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200 w-fit">
                     <DollarSign className="w-5 h-5"/>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Total Spend</p>
-                    <p className="text-2xl font-semibold text-black tracking-tight">
+                    <p className="text-xl sm:text-2xl font-semibold text-black tracking-tight">
                       {formatIDR(settlement?.total_session_spend)}
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex items-center space-x-4">
-                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200">
+                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200 w-fit">
                     <Users className="w-5 h-5"/>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Share / Person</p>
-                    <p className="text-2xl font-semibold text-black tracking-tight">
+                    <p className="text-xl sm:text-2xl font-semibold text-black tracking-tight">
                       {formatIDR(settlement?.share_per_person)}
                     </p>
                   </div>
@@ -629,13 +648,13 @@ export default function App() {
 
                     <form onSubmit={handleAddReceipt} className="space-y-3 pt-4 border-t border-neutral-100">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Manual Entry</p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           placeholder="Title"
                           value={receiptTitle}
                           onChange={(e) => setReceiptTitle(e.target.value)}
-                          className="w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
+                          className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
                         />
                         <input
                           type="number"
@@ -643,7 +662,7 @@ export default function App() {
                           placeholder="Amount (Rp)"
                           value={receiptAmount}
                           onChange={(e) => setReceiptAmount(e.target.value)}
-                          className="w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
+                          className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
                         />
                       </div>
                       <button type="submit" className="w-full bg-neutral-100 hover:bg-neutral-200 text-black py-2 rounded-xl text-sm font-medium transition-colors border border-neutral-200">
@@ -661,10 +680,10 @@ export default function App() {
                 <div className="space-y-4">
                   {sessionData?.receipts?.map((r) => (
                     <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between text-neutral-800">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between text-neutral-800 gap-3">
                         <div className="flex items-center gap-3">
                           {r.image_url && (
-                            <button onClick={() => setModalImage(r.image_url)} className="focus:outline-none">
+                            <button onClick={() => setModalImage(r.image_url)} className="focus:outline-none shrink-0">
                               <img src={r.image_url} alt={r.title} className="w-12 h-12 object-cover rounded-lg border border-neutral-300 hover:opacity-80 transition-opacity" title="Click to view full image" />
                             </button>
                           )}
@@ -673,13 +692,13 @@ export default function App() {
                             <div className="text-xs text-neutral-500">{r.items?.length || 0} items extracted</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                           <span className="font-semibold text-black">{formatIDR(r.total_amount)}</span>
                           <button
                             onClick={() => setActiveReceiptId(r.id)}
                             className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
                           >
-                            Assign Items
+                            Assign
                           </button>
                         </div>
                       </div>
