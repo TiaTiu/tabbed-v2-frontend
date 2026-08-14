@@ -93,21 +93,37 @@ export default function App() {
   const handleAddParticipant = async (e) => {
     e.preventDefault();
     if (!newParticipantName.trim() || !currentSessionId) return;
+    const nameToAdd = newParticipantName;
+    setNewParticipantName("");
+
+    // Optimistic UI update for instant feel
+    const tempParticipant = { id: Date.now(), name: nameToAdd };
+    setSessionData(prev => ({
+      ...prev,
+      participants: [...(prev?.participants || []), tempParticipant]
+    }));
+
     try {
       await fetch(`${API_URL}/participants/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newParticipantName, session_id: currentSessionId })
+        body: JSON.stringify({ name: nameToAdd, session_id: currentSessionId })
       });
-      setNewParticipantName("");
       fetchSessionDetails(currentSessionId);
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error adding participant:", err);
+      fetchSessionDetails(currentSessionId);
     }
   };
 
   const handleDeleteParticipant = async (participantId) => {
+    // Optimistic UI update
+    setSessionData(prev => ({
+      ...prev,
+      participants: (prev?.participants || []).filter(p => p.id !== participantId)
+    }));
+
     try {
       await fetch(`${API_URL}/participants/${participantId}`, {
         method: "DELETE",
@@ -116,6 +132,7 @@ export default function App() {
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error deleting participant:", err);
+      fetchSessionDetails(currentSessionId);
     }
   };
 
@@ -197,25 +214,52 @@ export default function App() {
   };
 
   const handleUpdatePayerAmount = async (receipt, participantId, amount) => {
-    const existingPayers = receipt.payers || [];
-    let updatedPayers = existingPayers.map(p => ({
-      participant_id: p.participant_id,
-      amount_paid: p.participant_id === participantId ? (amount === "" ? 0 : parseFloat(amount) || 0) : p.amount_paid
-    }));
+    const newAmount = amount === "" ? 0 : parseFloat(amount) || 0;
 
-    if (!updatedPayers.some(p => p.participant_id === participantId) && amount !== "" && parseFloat(amount) > 0) {
-      updatedPayers.push({ participant_id: participantId, amount_paid: parseFloat(amount) });
-    }
+    // 1. Instant local update (optimistic) so typing is instant
+    setSessionData(prevData => {
+      if (!prevData) return prevData;
+      const updatedReceipts = prevData.receipts.map(r => {
+        if (r.id === receipt.id) {
+          const existingPayers = r.payers || [];
+          let updatedPayers = existingPayers.map(p => ({
+            ...p,
+            amount_paid: p.participant_id === participantId ? newAmount : p.amount_paid
+          }));
 
-    updatedPayers = updatedPayers.filter(p => p.amount_paid > 0);
+          if (!updatedPayers.some(p => p.participant_id === participantId) && newAmount > 0) {
+            updatedPayers.push({ participant_id: participantId, amount_paid: newAmount });
+          }
 
+          return { ...r, payers: updatedPayers };
+        }
+        return r;
+      });
+      return { ...prevData, receipts: updatedReceipts };
+    });
+
+    // 2. Background sync with backend
     try {
+      const targetReceipt = sessionData?.receipts?.find(r => r.id === receipt.id);
+      const existingPayers = targetReceipt?.payers || [];
+      
+      let updatedPayers = existingPayers.map(p => ({
+        participant_id: p.participant_id,
+        amount_paid: p.participant_id === participantId ? newAmount : p.amount_paid
+      }));
+
+      if (!updatedPayers.some(p => p.participant_id === participantId) && newAmount > 0) {
+        updatedPayers.push({ participant_id: participantId, amount_paid: newAmount });
+      }
+
+      updatedPayers = updatedPayers.filter(p => p.amount_paid > 0);
+
       await fetch(`${API_URL}/receipts/${receipt.id}/payers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ payers: updatedPayers })
       });
-      fetchSessionDetails(currentSessionId);
+      
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error updating payer amount:", err);
@@ -726,7 +770,7 @@ export default function App() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {sessionData?.participants?.map((p) => {
                             const existingPayer = r.payers?.find(pr => pr.participant_id === p.id);
-                            const paidAmount = existingPayer ? existingPayer.amount_paid : "";
+                            const paidAmount = existingPayer && existingPayer.amount_paid !== 0 ? existingPayer.amount_paid : "";
                             return (
                               <div key={p.id} className="flex items-center justify-between bg-white border border-neutral-200 px-3 py-1.5 rounded-lg">
                                 <span className="text-xs font-medium text-neutral-700">{p.name}</span>
