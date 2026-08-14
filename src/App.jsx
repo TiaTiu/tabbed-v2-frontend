@@ -39,7 +39,12 @@ export default function App() {
       if (viewParam) setCurrentView(viewParam);
     }
     
-    fetch(`${API_URL}/sessions/`).then(res => res.json()).then(setSessions).catch(console.error);
+    fetch(`${API_URL}/sessions/`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSessions(data);
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -82,7 +87,7 @@ export default function App() {
         body: JSON.stringify({ name: newSessionName })
       });
       const data = await res.json();
-      setSessions([...sessions, data]);
+      setSessions(prev => Array.isArray(prev) ? [...prev, data] : [data]);
       setCurrentSessionId(data.id);
       setNewSessionName("");
       setActiveReceiptId(null);
@@ -92,17 +97,16 @@ export default function App() {
     }
   };
 
-  // OPTIMIZED: Instant local update before background server call
   const handleAddParticipant = async (e) => {
     e.preventDefault();
     if (!newParticipantName.trim() || !currentSessionId) return;
     const nameToAdd = newParticipantName;
     setNewParticipantName("");
 
-    const tempId = Date.now();
+    const tempParticipant = { id: Date.now(), name: nameToAdd };
     setSessionData(prev => ({
       ...prev,
-      participants: [...(prev?.participants || []), { id: tempId, name: nameToAdd }]
+      participants: [...(prev?.participants || []), tempParticipant]
     }));
 
     try {
@@ -119,7 +123,6 @@ export default function App() {
     }
   };
 
-  // OPTIMIZED: Instant removal locally before sync
   const handleDeleteParticipant = async (participantId) => {
     setSessionData(prev => ({
       ...prev,
@@ -181,10 +184,6 @@ export default function App() {
         throw new Error(data.detail || "Server error during upload.");
       }
 
-      if (data.uploaded === 0) {
-        alert("Upload finished, but Gemini returned 0 receipts. Check image quality.");
-      }
-
       fetchSessionDetails(currentSessionId);
       fetchSettlement(currentSessionId);
     } catch (err) {
@@ -196,7 +195,6 @@ export default function App() {
     }
   };
 
-  // OPTIMIZED: Instant toggle feedback on item assignment buttons
   const handleToggleParticipant = async (item, participantId) => {
     setSessionData(prev => {
       if (!prev) return prev;
@@ -235,7 +233,6 @@ export default function App() {
     }
   };
 
-  // OPTIMIZED: Instant local updating for payer amounts
   const handleUpdatePayerAmount = async (receipt, participantId, amount) => {
     const newAmount = amount === "" ? 0 : parseFloat(amount) || 0;
 
@@ -472,7 +469,7 @@ export default function App() {
                 </form>
               </div>
 
-              {sessions.length > 0 && (
+              {Array.isArray(sessions) && sessions.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Sessions</h3>
                   <div className="space-y-1.5">
@@ -843,7 +840,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>
