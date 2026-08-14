@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X } from 'lucide-react';
+import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2 } from 'lucide-react';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
@@ -107,6 +107,18 @@ export default function App() {
     }
   };
 
+  const handleDeleteParticipant = async (participantId) => {
+    try {
+      await fetch(`${API_URL}/participants/${participantId}`, {
+        method: "DELETE",
+      });
+      fetchSessionDetails(currentSessionId);
+      fetchSettlement(currentSessionId);
+    } catch (err) {
+      console.error("Error deleting participant:", err);
+    }
+  };
+
   const handleAddReceipt = async (e) => {
     e.preventDefault();
     if (!receiptTitle.trim() || !receiptAmount || !currentSessionId) return;
@@ -145,9 +157,13 @@ export default function App() {
         body: formData,
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Server error during upload.");
+        throw new Error(data.detail || "Server error during upload.");
+      }
+
+      if (data.uploaded === 0) {
+        alert("Upload finished, but Gemini returned 0 receipts. Check image quality.");
       }
 
       fetchSessionDetails(currentSessionId);
@@ -184,10 +200,10 @@ export default function App() {
     const existingPayers = receipt.payers || [];
     let updatedPayers = existingPayers.map(p => ({
       participant_id: p.participant_id,
-      amount_paid: p.participant_id === participantId ? parseFloat(amount) || 0 : p.amount_paid
+      amount_paid: p.participant_id === participantId ? (amount === "" ? 0 : parseFloat(amount) || 0) : p.amount_paid
     }));
 
-    if (!updatedPayers.some(p => p.participant_id === participantId) && amount > 0) {
+    if (!updatedPayers.some(p => p.participant_id === participantId) && amount !== "" && parseFloat(amount) > 0) {
       updatedPayers.push({ participant_id: participantId, amount_paid: parseFloat(amount) });
     }
 
@@ -217,7 +233,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
-      {/* IMAGE PREVIEW MODAL */}
       {modalImage && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
@@ -297,7 +312,7 @@ export default function App() {
 
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        {/* LEFT COLUMN: CONTEXTUAL SIDEBAR */}
+        {/* LEFT COLUMN: SIDEBAR */}
         <div className="space-y-6">
           {activeReceipt ? (
             <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs sticky top-24 space-y-3">
@@ -328,7 +343,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
-                  No image photo available for this receipt
+                  No image photo available
                 </div>
               )}
             </div>
@@ -364,7 +379,7 @@ export default function App() {
                   ))
                 ) : (
                   <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
-                    No receipt photos available for this session.
+                    No receipt photos available.
                   </div>
                 )}
               </div>
@@ -421,7 +436,7 @@ export default function App() {
           )}
         </div>
 
-        {/* RIGHT COLUMN: MAIN CONTENT VIEWS */}
+        {/* RIGHT COLUMN: CONTENT */}
         <div className="md:col-span-2 space-y-6">
           {!currentSessionId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
@@ -429,15 +444,13 @@ export default function App() {
                 <Receipt className="w-6 h-6"/>
               </div>
               <h3 className="text-base font-semibold text-neutral-900 mb-1">No Session Selected</h3>
-              <p className="text-sm text-neutral-500 max-w-sm">Create a new session on the left or select an existing one to start tracking splits and balances.</p>
+              <p className="text-sm text-neutral-500 max-w-sm">Create a new session on the left or select an existing one.</p>
             </div>
           ) : currentView === 'summary' ? (
             <div className="space-y-6">
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                <h2 className="text-2xl font-bold text-black tracking-tight mb-2">Receipts & Itemized Breakdown</h2>
-                <p className="text-sm text-neutral-500 mb-6">Complete overview of all receipts, item allocations, and amounts paid in {sessionData?.name}.</p>
-
-                <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-black tracking-tight mb-2">Receipts & Breakdown</h2>
+                <div className="space-y-6 mt-6">
                   {sessionData?.receipts?.map((r) => (
                     <div key={r.id} className="bg-neutral-50 border border-neutral-200 p-4 sm:p-6 rounded-2xl space-y-4">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200">
@@ -448,13 +461,12 @@ export default function App() {
                           </p>
                         </div>
                         <div className="text-left sm:text-right">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">Total Amount</span>
+                          <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">Total</span>
                           <span className="font-bold text-lg text-black">{formatIDR(r.total_amount)}</span>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Itemized Items</p>
                         {r.items?.map((item) => (
                           <div key={item.id} className="bg-white border border-neutral-200/60 p-3 rounded-xl flex items-center justify-between text-sm">
                             <div>
@@ -467,15 +479,11 @@ export default function App() {
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {item.participants?.length > 0 ? (
-                                  item.participants.map(p => (
-                                    <span key={p.id} className="bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                                      {p.name}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-xs text-neutral-400 italic">Unassigned</span>
-                                )}
+                                {item.participants?.map(p => (
+                                  <span key={p.id} className="bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                    {p.name}
+                                  </span>
+                                ))}
                               </div>
                             </div>
                             <span className="font-semibold text-neutral-900">{formatIDR(item.price)}</span>
@@ -489,10 +497,10 @@ export default function App() {
 
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
+                  <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
                 </h3>
                 <div className="space-y-2">
-                  {settlement?.settlements && settlement.settlements.length > 0 ? (
+                  {settlement?.settlements?.length > 0 ? (
                     settlement.settlements.map((s, index) => (
                       <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
                         <div className="flex items-center gap-2 font-medium">
@@ -500,13 +508,13 @@ export default function App() {
                           <ArrowRight className="w-4 h-4 text-neutral-400"/>
                           <span className="text-black font-semibold">{s.to}</span>
                         </div>
-                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 shadow-2xs">
+                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200">
                           {formatIDR(s.amount)}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-neutral-400 italic">No transfers required or specify payment amounts for receipts.</p>
+                    <p className="text-xs text-neutral-400 italic">No transfers required.</p>
                   )}
                 </div>
               </div>
@@ -523,10 +531,10 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-6 border-b border-neutral-100 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-black tracking-tight">{activeReceipt.title}</h2>
-                  <p className="text-sm text-neutral-500 mt-1">Assign items to one or multiple participants</p>
+                  <p className="text-sm text-neutral-500 mt-1">Assign items to participants</p>
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total Receipt</p>
+                  <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
                   <p className="text-2xl font-semibold text-black tracking-tight">{formatIDR(activeReceipt.total_amount)}</p>
                 </div>
               </div>
@@ -596,6 +604,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* PARTICIPANTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -615,8 +624,15 @@ export default function App() {
                     </form>
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                       {sessionData?.participants?.map((p) => (
-                        <div key={p.id} className="bg-neutral-50 border border-neutral-200/60 px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between text-neutral-800">
+                        <div key={p.id} className="bg-neutral-50 border border-neutral-200/60 px-3.5 py-2 rounded-xl text-sm flex items-center justify-between text-neutral-800">
                           <span>{p.name}</span>
+                          <button
+                            onClick={() => handleDeleteParticipant(p.id)}
+                            className="text-neutral-400 hover:text-red-600 transition-colors p-1"
+                            title="Delete participant"
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
                         </div>
                       ))}
                       {(!sessionData?.participants || sessionData?.participants.length === 0) && (
@@ -626,6 +642,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* RECEIPTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -673,6 +690,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* SCANNED RECEIPTS LIST */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-black"/> Scanned Receipts
@@ -720,7 +738,7 @@ export default function App() {
                                     placeholder="0"
                                     value={paidAmount}
                                     onChange={(e) => handleUpdatePayerAmount(r, p.id, e.target.value)}
-                                    className="w-24 text-right bg-neutral-50 border border-neutral-200 rounded px-2 py-1 text-xs text-neutral-900 focus:outline-none focus:border-black"
+                                    className="w-28 text-right bg-neutral-50 border border-neutral-200 rounded px-2 py-1 text-xs text-neutral-900 focus:outline-none focus:border-black"
                                   />
                                 </div>
                               </div>
@@ -736,6 +754,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* SETTLEMENTS */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
