@@ -38,6 +38,8 @@ export default function App() {
       setCurrentSessionId(parseInt(sessionParam, 10));
       if (viewParam) setCurrentView(viewParam);
     }
+    
+    fetch(`${API_URL}/sessions/`).then(res => res.json()).then(setSessions).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -90,17 +92,17 @@ export default function App() {
     }
   };
 
+  // OPTIMIZED: Instant local update before background server call
   const handleAddParticipant = async (e) => {
     e.preventDefault();
     if (!newParticipantName.trim() || !currentSessionId) return;
     const nameToAdd = newParticipantName;
     setNewParticipantName("");
 
-    // Optimistic UI update for instant feel
-    const tempParticipant = { id: Date.now(), name: nameToAdd };
+    const tempId = Date.now();
     setSessionData(prev => ({
       ...prev,
-      participants: [...(prev?.participants || []), tempParticipant]
+      participants: [...(prev?.participants || []), { id: tempId, name: nameToAdd }]
     }));
 
     try {
@@ -117,8 +119,8 @@ export default function App() {
     }
   };
 
+  // OPTIMIZED: Instant removal locally before sync
   const handleDeleteParticipant = async (participantId) => {
-    // Optimistic UI update
     setSessionData(prev => ({
       ...prev,
       participants: (prev?.participants || []).filter(p => p.id !== participantId)
@@ -194,7 +196,27 @@ export default function App() {
     }
   };
 
+  // OPTIMIZED: Instant toggle feedback on item assignment buttons
   const handleToggleParticipant = async (item, participantId) => {
+    setSessionData(prev => {
+      if (!prev) return prev;
+      const updatedReceipts = prev.receipts.map(r => ({
+        ...r,
+        items: r.items.map(i => {
+          if (i.id === item.id) {
+            const currentIds = i.participants?.map(p => p.id) || [];
+            const isSelected = currentIds.includes(participantId);
+            const newParticipantObjs = isSelected
+              ? i.participants.filter(p => p.id !== participantId)
+              : [...(i.participants || []), prev.participants.find(p => p.id === participantId) || { id: participantId }];
+            return { ...i, participants: newParticipantObjs };
+          }
+          return i;
+        })
+      }));
+      return { ...prev, receipts: updatedReceipts };
+    });
+
     const currentIds = item.participants?.map(p => p.id) || [];
     let newIds = currentIds.includes(participantId)
       ? currentIds.filter(id => id !== participantId)
@@ -206,17 +228,17 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participant_ids: newIds })
       });
-      fetchSessionDetails(currentSessionId);
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error updating item assignments:", err);
+      fetchSessionDetails(currentSessionId);
     }
   };
 
+  // OPTIMIZED: Instant local updating for payer amounts
   const handleUpdatePayerAmount = async (receipt, participantId, amount) => {
     const newAmount = amount === "" ? 0 : parseFloat(amount) || 0;
 
-    // 1. Instant local update (optimistic) so typing is instant
     setSessionData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
@@ -238,7 +260,6 @@ export default function App() {
       return { ...prevData, receipts: updatedReceipts };
     });
 
-    // 2. Background sync with backend
     try {
       const targetReceipt = sessionData?.receipts?.find(r => r.id === receipt.id);
       const existingPayers = targetReceipt?.payers || [];
