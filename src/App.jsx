@@ -785,7 +785,7 @@ export default function App() {
                 </h3>
                 <div className="space-y-4">
                   {sessionData?.receipts?.map((r) => {
-                    const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (curr.amount_paid || 0), 0) || 0;
+                    const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (parseFloat(curr.amount_paid) || 0), 0) || 0;
                     const isUnderpaid = totalPaidForReceipt < r.total_amount;
 
                     return (
