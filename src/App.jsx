@@ -655,15 +655,33 @@ export default function App() {
                   <div className="flex justify-between text-sm">
                     <span className="text-neutral-500">Subtotal</span>
                     <span className="font-medium text-neutral-900">
-                      {formatIDR(activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0))}
+                      {formatIDR(activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0))}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Tax / Service / Other / Discount</span>
-                    <span className="font-medium text-neutral-900">
-                      {formatIDR(activeReceipt.total_amount - (activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0) || 0))}
-                    </span>
-                  </div>
+                  {activeReceipt.tax != null && activeReceipt.tax !== 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Tax (Pajak)</span>
+                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.tax)}</span>
+                    </div>
+                  )}
+                  {activeReceipt.service != null && activeReceipt.service !== 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Service (Servis)</span>
+                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.service)}</span>
+                    </div>
+                  )}
+                  {activeReceipt.discount != null && activeReceipt.discount !== 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Discount (Diskon)</span>
+                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.discount)}</span>
+                    </div>
+                  )}
+                  {activeReceipt.others != null && activeReceipt.others !== 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Others / Delivery (Lainnya)</span>
+                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.others)}</span>
+                    </div>
+                  )}
                   <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold">
                     <span className="text-black">Total</span>
                     <span className="text-black">{formatIDR(activeReceipt.total_amount)}</span>
