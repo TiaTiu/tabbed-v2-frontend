@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2 } from 'lucide-react';
+import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle } from 'lucide-react';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
@@ -233,8 +233,9 @@ export default function App() {
     }
   };
 
-  const handleUpdatePayerAmount = async (receipt, participantId, amount) => {
-    const newAmount = amount === "" ? 0 : parseFloat(amount) || 0;
+  const handleUpdatePayerAmount = async (receipt, participantId, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    const newAmount = cleanedValue === "" ? 0 : parseFloat(cleanedValue) || 0;
 
     setSessionData(prevData => {
       if (!prevData) return prevData;
@@ -243,11 +244,11 @@ export default function App() {
           const existingPayers = r.payers || [];
           let updatedPayers = existingPayers.map(p => ({
             ...p,
-            amount_paid: p.participant_id === participantId ? newAmount : p.amount_paid
+            amount_paid: p.participant_id === participantId ? (cleanedValue === "" ? "" : cleanedValue) : p.amount_paid
           }));
 
-          if (!updatedPayers.some(p => p.participant_id === participantId) && newAmount > 0) {
-            updatedPayers.push({ participant_id: participantId, amount_paid: newAmount });
+          if (!updatedPayers.some(p => p.participant_id === participantId) && cleanedValue !== "") {
+            updatedPayers.push({ participant_id: participantId, amount_paid: cleanedValue });
           }
 
           return { ...r, payers: updatedPayers };
@@ -691,32 +692,6 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200 w-fit">
-                    <DollarSign className="w-5 h-5"/>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Total Spend</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-black tracking-tight">
-                      {formatIDR(settlement?.total_session_spend)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="bg-neutral-100 text-black p-3 rounded-xl border border-neutral-200 w-fit">
-                    <Users className="w-5 h-5"/>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Share / Person</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-black tracking-tight">
-                      {formatIDR(settlement?.share_per_person)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* PARTICIPANTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
@@ -788,11 +763,10 @@ export default function App() {
                           className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
                         />
                         <input
-                          type="number"
-                          step="1"
+                          type="text"
                           placeholder="Amount (Rp)"
                           value={receiptAmount}
-                          onChange={(e) => setReceiptAmount(e.target.value)}
+                          onChange={(e) => setReceiptAmount(e.target.value.replace(/[^0-9]/g, ''))}
                           className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
                         />
                       </div>
@@ -810,58 +784,69 @@ export default function App() {
                   <Receipt className="w-4 h-4 text-black"/> Scanned Receipts
                 </h3>
                 <div className="space-y-4">
-                  {sessionData?.receipts?.map((r) => (
-                    <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between text-neutral-800 gap-3">
-                        <div className="flex items-center gap-3">
-                          {r.image_url && (
-                            <button onClick={() => setModalImage(r.image_url)} className="focus:outline-none shrink-0">
-                              <img src={r.image_url} alt={r.title} className="w-12 h-12 object-cover rounded-lg border border-neutral-300 hover:opacity-80 transition-opacity" title="Click to view full image" />
+                  {sessionData?.receipts?.map((r) => {
+                    const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (curr.amount_paid || 0), 0) || 0;
+                    const isUnderpaid = totalPaidForReceipt < r.total_amount;
+
+                    return (
+                      <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-neutral-800 gap-3">
+                          <div className="flex items-center gap-3">
+                            {r.image_url && (
+                              <button onClick={() => setModalImage(r.image_url)} className="focus:outline-none shrink-0">
+                                <img src={r.image_url} alt={r.title} className="w-12 h-12 object-cover rounded-lg border border-neutral-300 hover:opacity-80 transition-opacity" title="Click to view full image" />
+                              </button>
+                            )}
+                            <div>
+                              <div className="font-semibold text-black mb-0.5">{r.title}</div>
+                              <div className="text-xs text-neutral-500">{r.items?.length || 0} items extracted</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                            <span className="font-semibold text-black">{formatIDR(r.total_amount)}</span>
+                            <button
+                              onClick={() => setActiveReceiptId(r.id)}
+                              className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+                            >
+                              Assign
                             </button>
-                          )}
-                          <div>
-                            <div className="font-semibold text-black mb-0.5">{r.title}</div>
-                            <div className="text-xs text-neutral-500">{r.items?.length || 0} items extracted</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                          <span className="font-semibold text-black">{formatIDR(r.total_amount)}</span>
-                          <button
-                            onClick={() => setActiveReceiptId(r.id)}
-                            className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
-                          >
-                            Assign
-                          </button>
-                        </div>
-                      </div>
 
-                      <div className="pt-3 border-t border-neutral-200/60">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Who Paid?</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {sessionData?.participants?.map((p) => {
-                            const existingPayer = r.payers?.find(pr => pr.participant_id === p.id);
-                            const paidAmount = existingPayer && existingPayer.amount_paid !== 0 ? existingPayer.amount_paid : "";
-                            return (
-                              <div key={p.id} className="flex items-center justify-between bg-white border border-neutral-200 px-3 py-1.5 rounded-lg">
-                                <span className="text-xs font-medium text-neutral-700">{p.name}</span>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-xs text-neutral-400">Rp</span>
-                                  <input
-                                    type="number"
-                                    step="1"
-                                    placeholder="0"
-                                    value={paidAmount}
-                                    onChange={(e) => handleUpdatePayerAmount(r, p.id, e.target.value)}
-                                    className="w-28 text-right bg-neutral-50 border border-neutral-200 rounded px-2 py-1 text-xs text-neutral-900 focus:outline-none focus:border-black"
-                                  />
+                        <div className="pt-3 border-t border-neutral-200/60">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Who Paid?</p>
+                            {isUnderpaid && (
+                              <span className="flex items-center gap-1 text-amber-600 text-xs font-medium bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                                <AlertCircle className="w-3.5 h-3.5"/> Total paid ({formatIDR(totalPaidForReceipt)}) is less than receipt total ({formatIDR(r.total_amount)})
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {sessionData?.participants?.map((p) => {
+                              const existingPayer = r.payers?.find(pr => pr.participant_id === p.id);
+                              const paidAmount = existingPayer && existingPayer.amount_paid !== 0 ? existingPayer.amount_paid : "";
+                              return (
+                                <div key={p.id} className="flex items-center justify-between bg-white border border-neutral-200 px-3 py-1.5 rounded-lg">
+                                  <span className="text-xs font-medium text-neutral-700">{p.name}</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-neutral-400">Rp</span>
+                                    <input
+                                      type="text"
+                                      placeholder="0"
+                                      value={paidAmount}
+                                      onChange={(e) => handleUpdatePayerAmount(r, p.id, e.target.value)}
+                                      className="w-28 text-right bg-neutral-50 border border-neutral-200 rounded px-2 py-1 text-xs text-neutral-900 focus:outline-none focus:border-black"
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {(!sessionData?.receipts || sessionData?.receipts.length === 0) && (
                     <p className="text-xs text-neutral-400 italic text-center py-4">No receipts recorded yet.</p>
                   )}
