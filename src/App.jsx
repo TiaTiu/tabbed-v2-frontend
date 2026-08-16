@@ -622,8 +622,8 @@ export default function App() {
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
-                          <span className="bg-neutral-200 text-neutral-800 text-xs px-2 py-0.5 rounded-md font-bold">
-                            {item.quantity}x
+                          <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold">
+                            x{item.quantity}
                           </span>
                         )}
                       </div>
@@ -649,6 +649,26 @@ export default function App() {
                     </div>
                   </div>
                 ))}
+
+                {/* RECEIPT FINANCIAL BREAKDOWN SUMMARY */}
+                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-2.5 mt-6">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Subtotal</span>
+                    <span className="font-medium text-neutral-900">
+                      {formatIDR(activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Tax / Service / Other / Discount</span>
+                    <span className="font-medium text-neutral-900">
+                      {formatIDR(activeReceipt.total_amount - (activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0) || 0))}
+                    </span>
+                  </div>
+                  <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold">
+                    <span className="text-black">Total</span>
+                    <span className="text-black">{formatIDR(activeReceipt.total_amount)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
