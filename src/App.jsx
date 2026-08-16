@@ -528,10 +528,15 @@ export default function App() {
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Rincian pesanan</p>
                         {p.items?.map((item, iIdx) => (
-                          <div key={iIdx} className="flex items-center justify-between text-sm py-1">
-                            <span className="text-neutral-700">
-                              {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
-                            </span>
+                          <div key={iIdx} className="flex items-center justify-between text-sm py-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-700">{item.name}</span>
+                              {item.quantity > 1 && (
+                                <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold">
+                                  x{item.quantity}
+                                </span>
+                              )}
+                            </div>
                             <span className="font-medium text-neutral-900">{formatIDR(item.price)}</span>
                           </div>
                         ))}
