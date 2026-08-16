@@ -511,52 +511,38 @@ export default function App() {
           ) : currentView === 'summary' ? (
             <div className="space-y-6">
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                <h2 className="text-2xl font-bold text-black tracking-tight mb-2">Receipts & Breakdown</h2>
-                <div className="space-y-6 mt-6">
-                  {sessionData?.receipts?.map((r) => (
-                    <div key={r.id} className="bg-neutral-50 border border-neutral-200 p-4 sm:p-6 rounded-2xl space-y-4">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200">
-                        <div>
-                          <h3 className="font-bold text-lg text-black">{r.title}</h3>
-                          <p className="text-xs text-neutral-500 mt-0.5">
-                            Paid by: {r.payers?.length > 0 ? r.payers.map(p => `${p.participant?.name || 'Someone'} (${formatIDR(p.amount_paid)})`).join(', ') : <span className="text-amber-600 font-medium">Not specified</span>}
-                          </p>
+                <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
+                <div className="space-y-6">
+                  {settlement?.participant_breakdown?.map((p, idx) => (
+                    <div key={idx} className="bg-neutral-50 border border-neutral-200 p-5 rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-bold text-lg text-black">{p.name}</span>
                         </div>
-                        <div className="text-left sm:text-right">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider block">Total</span>
-                          <span className="font-bold text-lg text-black">{formatIDR(r.total_amount)}</span>
-                        </div>
+                        <span className="font-bold text-lg text-black">{formatIDR(p.total_spent)}</span>
                       </div>
 
                       <div className="space-y-2">
-                        {r.items?.map((item) => (
-                          <div key={item.id} className="bg-white border border-neutral-200/60 p-3 rounded-xl flex items-center justify-between text-sm">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-neutral-900">{item.name}</span>
-                                {item.quantity > 1 && (
-                                  <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold">
-                                    {item.quantity}x
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {item.participants?.map(p => (
-                                  <span key={p.id} className="bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                                    {p.name}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <span className="font-semibold text-neutral-900">{formatIDR(item.price)}</span>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Rincian pesanan</p>
+                        {p.items?.map((item, iIdx) => (
+                          <div key={iIdx} className="flex items-center justify-between text-sm py-1">
+                            <span className="text-neutral-700">{item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}</span>
+                            <span className="font-medium text-neutral-900">{formatIDR(item.price)}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ))}
+                  {(!settlement?.participant_breakdown || settlement.participant_breakdown.length === 0) && (
+                    <p className="text-sm text-neutral-500 italic">No items assigned yet.</p>
+                  )}
                 </div>
               </div>
 
+              {/* Recommended Settlements Card */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
