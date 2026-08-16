@@ -529,7 +529,9 @@ export default function App() {
                         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Rincian pesanan</p>
                         {p.items?.map((item, iIdx) => (
                           <div key={iIdx} className="flex items-center justify-between text-sm py-1">
-                            <span className="text-neutral-700">{item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}</span>
+                            <span className="text-neutral-700">
+                              {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
+                            </span>
                             <span className="font-medium text-neutral-900">{formatIDR(item.price)}</span>
                           </div>
                         ))}
@@ -539,6 +541,27 @@ export default function App() {
                   {(!settlement?.participant_breakdown || settlement.participant_breakdown.length === 0) && (
                     <p className="text-sm text-neutral-500 italic">No items assigned yet.</p>
                   )}
+                </div>
+              </div>
+
+              {/* CALCULATION SUMMARY CARD */}
+              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-black"/> Calculation Summary
+                </h3>
+                <div className="space-y-3">
+                  {settlement?.participant_breakdown?.map((p, idx) => (
+                    <div key={idx} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
+                      <span className="font-bold text-black">{p.name}</span>
+                      <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+                        <span className="text-neutral-600">Paid: <strong className="text-black">{formatIDR(p.total_paid)}</strong></span>
+                        <span className="text-neutral-600">Spent: <strong className="text-black">{formatIDR(p.total_spent)}</strong></span>
+                        <span className={`px-2.5 py-1 rounded-lg font-semibold ${p.net_balance >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                          Net: {formatIDR(p.net_balance)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
