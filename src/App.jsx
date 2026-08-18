@@ -78,7 +78,7 @@ export default function App() {
       const data = await res.json();
       setSessionData(data);
     } catch (err) {
-      console.error("Error fetching session details:", err);
+      console.error("Error fetching event details:", err);
     }
   };
 
@@ -108,7 +108,28 @@ export default function App() {
       setActiveReceiptId(null);
       setCurrentView('dashboard');
     } catch (err) {
-      console.error("Error creating session:", err);
+      console.error("Error creating event:", err);
+    }
+  };
+
+  const handleDeleteSession = async (e, sessionId) => {
+    e.stopPropagation(); // Prevent clicking the row
+    if (!window.confirm("Are you sure you want to delete this event and all its data?")) return;
+
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    if (currentSessionId === sessionId) {
+      setCurrentSessionId(null);
+      setSessionData(null);
+      setCurrentView('dashboard');
+      window.history.pushState({ path: '/' }, '', '/');
+    }
+
+    try {
+      await fetch(`${API_URL}/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Error deleting event:", err);
     }
   };
 
@@ -393,7 +414,7 @@ export default function App() {
         {sessionData && (
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
-              Session: <span className="text-black font-semibold">{sessionData?.name}</span>
+              Event: <span className="text-black font-semibold">{sessionData?.name}</span>
             </div>
             
             <button 
@@ -447,7 +468,7 @@ export default function App() {
           ) : currentView === 'summary' && currentSessionId ? (
             <div className="space-y-4 sticky top-24">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-black"/> Session Photos
+                <Receipt className="w-4 h-4 text-black"/> Event Photos
               </h2>
               <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
                 {sessionData?.receipts?.filter(r => r.image_url).length > 0 ? (
@@ -485,7 +506,7 @@ export default function App() {
             <>
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-black"/> New Session
+                  <Plus className="w-4 h-4 text-black"/> New Event
                 </h2>
                 <form onSubmit={handleCreateSession} className="space-y-3">
                   <input
@@ -499,32 +520,36 @@ export default function App() {
                     type="submit"
                     className="w-full bg-black hover:bg-neutral-800 text-white font-medium py-2.5 rounded-xl transition-all shadow-sm text-sm"
                   >
-                    Create Session
+                    Create Event
                   </button>
                 </form>
               </div>
 
               {Array.isArray(sessions) && sessions.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Sessions</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Events</h3>
                   <div className="space-y-1.5">
                     {sessions.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          setCurrentSessionId(s.id);
-                          setActiveReceiptId(null);
-                          setCurrentView('dashboard');
-                        }}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
-                          currentSessionId === s.id 
-                            ? 'bg-neutral-900 text-white shadow-xs' 
-                            : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-neutral-100'
-                        }`}
-                      >
-                        <span>{s.name}</span>
-                        <ChevronRight className={`w-4 h-4 ${currentSessionId === s.id ? 'text-white' : 'text-neutral-400'}`} />
-                      </button>
+                      <div key={s.id} className={`flex items-center justify-between rounded-xl transition-all border ${currentSessionId === s.id ? 'bg-neutral-900 text-white shadow-xs border-transparent' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-100'}`}>
+                        <button
+                          onClick={() => {
+                            setCurrentSessionId(s.id);
+                            setActiveReceiptId(null);
+                            setCurrentView('dashboard');
+                          }}
+                          className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
+                        >
+                          <span className="truncate pr-2">{s.name}</span>
+                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentSessionId === s.id ? 'text-white' : 'text-neutral-400'}`} />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteSession(e, s.id)}
+                          className={`px-3 py-3 transition-colors ${currentSessionId === s.id ? 'text-neutral-400 hover:text-red-400' : 'text-neutral-400 hover:text-red-600'}`}
+                          title="Delete Event"
+                        >
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -540,8 +565,8 @@ export default function App() {
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-black mb-4 shadow-xs">
                 <Receipt className="w-6 h-6"/>
               </div>
-              <h3 className="text-base font-semibold text-neutral-900 mb-1">No Session Selected</h3>
-              <p className="text-sm text-neutral-500 max-w-sm">Create a new session on the left or select an existing one.</p>
+              <h3 className="text-base font-semibold text-neutral-900 mb-1">No Event Selected</h3>
+              <p className="text-sm text-neutral-500 max-w-sm">Create a new event on the left or select an existing one.</p>
             </div>
           ) : currentView === 'summary' ? (
             <div className="space-y-6">
@@ -759,45 +784,8 @@ export default function App() {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* PARTICIPANTS CARD */}
-                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-black"/> Participants
-                    </h3>
-                    <form onSubmit={handleAddParticipant} className="flex gap-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Name"
-                        value={newParticipantName}
-                        onChange={(e) => setNewParticipantName(e.target.value)}
-                        className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
-                      />
-                      <button type="submit" className="bg-neutral-900 hover:bg-black text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-                        Add
-                      </button>
-                    </form>
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                      {sessionData?.participants?.map((p) => (
-                        <div key={p.id} className="bg-neutral-50 border border-neutral-200/60 px-3.5 py-2 rounded-xl text-sm flex items-center justify-between text-neutral-800">
-                          <span>{p.name}</span>
-                          <button
-                            onClick={() => handleDeleteParticipant(p.id)}
-                            className="text-neutral-400 hover:text-red-600 transition-colors p-1"
-                            title="Delete participant"
-                          >
-                            <Trash2 className="w-4 h-4"/>
-                          </button>
-                        </div>
-                      ))}
-                      {(!sessionData?.participants || sessionData?.participants.length === 0) && (
-                        <p className="text-xs text-neutral-400 italic">No participants added yet.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* RECEIPTS CARD */}
+                
+                {/* RECEIPTS CARD (MOVED TO LEFT / TOP) */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -842,6 +830,45 @@ export default function App() {
                     </form>
                   </div>
                 </div>
+
+                {/* PARTICIPANTS CARD (MOVED TO RIGHT / BOTTOM) */}
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-black"/> Participants
+                    </h3>
+                    <form onSubmit={handleAddParticipant} className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={newParticipantName}
+                        onChange={(e) => setNewParticipantName(e.target.value)}
+                        className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
+                      />
+                      <button type="submit" className="bg-neutral-900 hover:bg-black text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+                        Add
+                      </button>
+                    </form>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {sessionData?.participants?.map((p) => (
+                        <div key={p.id} className="bg-neutral-50 border border-neutral-200/60 px-3.5 py-2 rounded-xl text-sm flex items-center justify-between text-neutral-800">
+                          <span>{p.name}</span>
+                          <button
+                            onClick={() => handleDeleteParticipant(p.id)}
+                            className="text-neutral-400 hover:text-red-600 transition-colors p-1"
+                            title="Delete participant"
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
+                        </div>
+                      ))}
+                      {(!sessionData?.participants || sessionData?.participants.length === 0) && (
+                        <p className="text-xs text-neutral-400 italic">No participants added yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               {/* SCANNED RECEIPTS LIST */}
