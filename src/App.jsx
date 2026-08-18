@@ -356,6 +356,52 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleNativeShare = async () => {
+    const summaryElement = document.getElementById('receipt-summary-card');
+    if (!summaryElement) {
+      handleShareLink();
+      return;
+    }
+
+    try {
+      const canvas = await window.html2canvas(summaryElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          handleShareLink();
+          return;
+        }
+        const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
+        
+        const shareData = {
+          title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+          text: `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`,
+          url: `${window.location.origin}/?event=${currentEventId}&view=summary`,
+          files: [file]
+        };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+        } else if (navigator.share) {
+          await navigator.share({
+            title: shareData.title,
+            text: shareData.text,
+            url: shareData.url,
+          });
+        } else {
+          handleShareLink();
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error("Error sharing natively:", err);
+      handleShareLink();
+    }
+  };
+
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
 
   return (
@@ -390,7 +436,7 @@ export default function App() {
           
           {eventData && (
             <button 
-              onClick={handleShareLink}
+              onClick={handleNativeShare}
               className="sm:hidden flex items-center gap-1.5 bg-black text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
             >
               {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
@@ -427,7 +473,7 @@ export default function App() {
             </div>
             
             <button 
-              onClick={handleShareLink}
+              onClick={handleNativeShare}
               className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
             >
               {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
@@ -578,7 +624,8 @@ export default function App() {
               <p className="text-sm text-neutral-500 max-w-sm">Create a new event on the left or select an existing one.</p>
             </div>
           ) : currentView === 'summary' ? (
-            <div className="space-y-6">
+            /* Added id="receipt-summary-card" here so html2canvas targets the entire summary view container nicely */
+            <div id="receipt-summary-card" className="space-y-6 bg-white p-2 sm:p-4 rounded-3xl">
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
                 <div className="space-y-6">
