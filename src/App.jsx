@@ -19,10 +19,6 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
   const [modalImage, setModalImage] = useState(null);
-  
-  // NEW: State for the generated share image modal
-  const [isSharing, setIsSharing] = useState(false);
-  const [summaryImageData, setSummaryImageData] = useState(null);
 
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
@@ -360,112 +356,35 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // NEW: Triggers canvas generation and opens the Modal instead of forcing native share sheet
-  const handleOpenShareModal = async () => {
-    if (isSharing) return;
-    setIsSharing(true);
-
-    const summaryElement = document.getElementById('receipt-summary-card');
+  // INSTANT WHATSAPP TEXT SHARE (Bypasses html2canvas & oklch crashes)
+  const handleOpenShareModal = () => {
+    const eventName = eventData?.name || 'Event';
+    let text = `📊 *Bill Summary - ${eventName}* 📊\n\n`;
     
-    if (!summaryElement || typeof window.html2canvas === 'undefined') {
-      handleShareLink();
-      setIsSharing(false);
-      return;
-    }
+    text += `*Participant Breakdown:*\n`;
+    settlement?.participant_breakdown?.forEach(p => {
+      text += `- ${p.name}: Spent ${formatIDR(p.total_spent)} (Paid ${formatIDR(p.total_paid)})\n`;
+    });
 
-    try {
-      const canvas = await window.html2canvas(summaryElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false
+    text += `\n*Recommended Settlements:*\n`;
+    if (settlement?.settlements?.length > 0) {
+      settlement.settlements.forEach(s => {
+        text += `👉 ${s.from} ➔ ${s.to}: *${formatIDR(s.amount)}*\n`;
       });
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          setSummaryImageData({
-            dataUrl: canvas.toDataURL('image/png'),
-            blob: blob
-          });
-        } else {
-          handleShareLink();
-        }
-        setIsSharing(false);
-      }, 'image/png');
-    } catch (err) {
-      console.error("Canvas error:", err);
-      handleShareLink();
-      setIsSharing(false);
+    } else {
+      text += `No transfers required.\n`;
     }
+
+    text += `\n🔗 View full app: ${window.location.origin}/?event=${currentEventId}&view=summary`;
+
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
-      
-      {/* 📸 NEW GENERATED IMAGE SHARE MODAL 📸 */}
-      {summaryImageData && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 shadow-2xl">
-            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-white shrink-0">
-              <h3 className="font-bold text-neutral-900">Share Summary</h3>
-              <button
-                onClick={() => setSummaryImageData(null)}
-                className="bg-neutral-100 hover:bg-neutral-200 p-2 rounded-full text-neutral-700 transition-colors"
-              >
-                <X className="w-4 h-4"/>
-              </button>
-            </div>
-            
-            <div className="overflow-y-auto p-5 sm:p-6 bg-neutral-50 flex flex-col items-center flex-1">
-              <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-3 rounded-xl mb-4 text-center font-medium shadow-sm w-full">
-                💡 Long-press the image below to Share or Save to Photos.
-              </div>
-              <img 
-                src={summaryImageData.dataUrl} 
-                alt="Bill Summary Preview" 
-                className="w-full rounded-xl shadow-sm border border-neutral-200 bg-white" 
-              />
-            </div>
-
-            <div className="p-4 border-t border-neutral-200 bg-white space-y-3 shrink-0">
-              <button
-                onClick={async () => {
-                  const file = new File([summaryImageData.blob], 'bill-summary.png', { type: 'image/png' });
-                  const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
-                  const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
-                  
-                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                      await navigator.share({
-                        title: 'Bill Summary',
-                        text: `${baseText}\n\nLink: ${url}`,
-                        files: [file]
-                      });
-                    } catch (e) {
-                      console.error("Native share failed:", e);
-                    }
-                  } else {
-                    handleShareLink();
-                  }
-                }}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-medium py-3 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2"
-              >
-                <Share2 className="w-4 h-4"/> Share via App
-              </button>
-              <button
-                onClick={handleShareLink}
-                className="w-full bg-neutral-100 hover:bg-neutral-200 text-black font-medium py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
-              >
-                {copied ? <Check className="w-4 h-4"/> : <ExternalLink className="w-4 h-4"/>}
-                {copied ? "Link Copied!" : "Copy Link"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {modalImage && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
@@ -497,11 +416,9 @@ export default function App() {
           {eventData && currentView === 'summary' && (
             <button 
               onClick={handleOpenShareModal}
-              disabled={isSharing}
-              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all"
             >
-              <Share2 className="w-3.5 h-3.5"/>
-              {isSharing ? "Loading..." : "Share"}
+              <Share2 className="w-3.5 h-3.5"/> Share
             </button>
           )}
         </div>
@@ -536,11 +453,9 @@ export default function App() {
             {currentView === 'summary' && (
               <button 
                 onClick={handleOpenShareModal}
-                disabled={isSharing}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
               >
-                <Share2 className="w-3.5 h-3.5"/>
-                {isSharing ? "Loading..." : "Share"}
+                <Share2 className="w-3.5 h-3.5"/> Share
               </button>
             )}
           </div>
