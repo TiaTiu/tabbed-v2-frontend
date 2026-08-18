@@ -357,7 +357,7 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // GOPAY STYLE NATIVE IMAGE SHARE HANDLER
+  // SVG ForeignObject Native Image Share Handler (Immune to html2canvas / oklch crashes)
   const handleOpenShareModal = async () => {
     if (isSharing) return;
     setIsSharing(true);
@@ -366,56 +366,78 @@ export default function App() {
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
 
-    if (!summaryElement || typeof window.html2canvas === 'undefined') {
+    if (!summaryElement) {
       handleShareLink();
       setIsSharing(false);
       return;
     }
 
     try {
-      const canvas = await window.html2canvas(summaryElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: (clonedDoc) => {
-          const clonedCard = clonedDoc.getElementById('receipt-summary-card');
-          if (clonedCard) {
-            clonedCard.style.backgroundColor = '#ffffff';
-            clonedCard.style.color = '#171717';
-          }
-        }
-      });
+      const htmlString = summaryElement.outerHTML;
+      const width = summaryElement.offsetWidth || 600;
+      const height = summaryElement.offsetHeight || 800;
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          handleShareLink();
+      const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: sans-serif; background: white; padding: 16px;">
+              ${htmlString}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
+
+      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(blobURL);
+
+        canvas.toBlob(async (pngBlob) => {
+          if (!pngBlob) {
+            handleShareLink();
+            setIsSharing(false);
+            return;
+          }
+
+          const file = new File([pngBlob], 'bill-summary.png', { type: 'image/png' });
+          const shareData = {
+            title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+            text: baseText,
+            files: [file]
+          };
+
+          if (navigator.canShare && navigator.canShare(shareData)) {
+            try {
+              await navigator.share(shareData);
+            } catch (err) {
+              if (err.name !== 'AbortError') handleShareLink();
+            }
+          } else if (navigator.share) {
+            await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
+          } else {
+            handleShareLink();
+          }
           setIsSharing(false);
-          return;
-        }
+        }, 'image/png');
+      };
 
-        const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
-        const shareData = {
-          title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
-          text: baseText,
-          files: [file]
-        };
-
-        if (navigator.canShare && navigator.canShare(shareData)) {
-          try {
-            await navigator.share(shareData);
-          } catch (err) {
-            if (err.name !== 'AbortError') handleShareLink();
-          }
-        } else if (navigator.share) {
-          await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
-        } else {
-          handleShareLink();
-        }
+      img.onerror = () => {
+        handleShareLink();
         setIsSharing(false);
-      }, 'image/png');
+      };
+
+      img.src = blobURL;
     } catch (err) {
-      console.error("Canvas generation error:", err);
+      console.error("Image generation error:", err);
       handleShareLink();
       setIsSharing(false);
     }
@@ -1045,7 +1067,7 @@ export default function App() {
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
                 </h3>
                 <div className="space-y-2">
-                  {settlement?.settlements && settlement.settlements.length > 0 ? (
+                  {settlement?.settlements && settlement.settlements.length > 0 ?,
                     settlement.settlements.map((s, index) => (
                       <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
                         <div className="flex items-center gap-2 font-medium">
@@ -1063,7 +1085,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>
