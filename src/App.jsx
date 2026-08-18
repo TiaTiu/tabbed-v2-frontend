@@ -357,7 +357,7 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // SVG ForeignObject Native Image Share Handler (Immune to html2canvas / oklch crashes)
+  // SVG ForeignObject Native Image Share Handler
   const handleOpenShareModal = async () => {
     if (isSharing) return;
     setIsSharing(true);
