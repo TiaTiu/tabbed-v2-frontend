@@ -4,12 +4,12 @@ import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
 export default function App() {
-  const [sessions, setSessions] = useState([]);
-  const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [sessionData, setSessionData] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [currentEventId, setCurrentEventId] = useState(null);
+  const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
 
-  const [newSessionName, setNewSessionName] = useState("");
+  const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
   const [receiptTitle, setReceiptTitle] = useState("");
   const [receiptAmount, setReceiptAmount] = useState("");
@@ -46,37 +46,37 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const sessionParam = params.get('session');
+    const eventParam = params.get('event');
     const viewParam = params.get('view');
     
-    if (sessionParam) {
-      setCurrentSessionId(parseInt(sessionParam, 10));
+    if (eventParam) {
+      setCurrentEventId(parseInt(eventParam, 10));
       if (viewParam) setCurrentView(viewParam);
     }
     
-    fetch(`${API_URL}/sessions/`)
+    fetch(`${API_URL}/events/`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) setSessions(data);
+        if (Array.isArray(data)) setEvents(data);
       })
       .catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (currentSessionId) {
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+    if (currentEventId) {
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
       
-      const newUrl = `${window.location.pathname}?session=${currentSessionId}&view=${currentView}`;
+      const newUrl = `${window.location.pathname}?event=${currentEventId}&view=${currentView}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
-  }, [currentSessionId, currentView]);
+  }, [currentEventId, currentView]);
 
-  const fetchSessionDetails = async (id) => {
+  const fetchEventDetails = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/sessions/${id}`);
+      const res = await fetch(`${API_URL}/events/${id}`);
       const data = await res.json();
-      setSessionData(data);
+      setEventData(data);
     } catch (err) {
       console.error("Error fetching event details:", err);
     }
@@ -84,7 +84,7 @@ export default function App() {
 
   const fetchSettlement = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/sessions/${id}/settlement`);
+      const res = await fetch(`${API_URL}/events/${id}/settlement`);
       const data = await res.json();
       setSettlement(data);
     } catch (err) {
@@ -92,19 +92,19 @@ export default function App() {
     }
   };
 
-  const handleCreateSession = async (e) => {
+  const handleCreateEvent = async (e) => {
     e.preventDefault();
-    if (!newSessionName.trim()) return;
+    if (!newEventName.trim()) return;
     try {
-      const res = await fetch(`${API_URL}/sessions/`, {
+      const res = await fetch(`${API_URL}/events/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newSessionName })
+        body: JSON.stringify({ name: newEventName })
       });
       const data = await res.json();
-      setSessions(prev => Array.isArray(prev) ? [...prev, data] : [data]);
-      setCurrentSessionId(data.id);
-      setNewSessionName("");
+      setEvents(prev => Array.isArray(prev) ? [...prev, data] : [data]);
+      setCurrentEventId(data.id);
+      setNewEventName("");
       setActiveReceiptId(null);
       setCurrentView('dashboard');
     } catch (err) {
@@ -112,20 +112,20 @@ export default function App() {
     }
   };
 
-  const handleDeleteSession = async (e, sessionId) => {
-    e.stopPropagation(); // Prevent clicking the row
+  const handleDeleteEvent = async (e, eventId) => {
+    e.stopPropagation();
     if (!window.confirm("Are you sure you want to delete this event and all its data?")) return;
 
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    if (currentSessionId === sessionId) {
-      setCurrentSessionId(null);
-      setSessionData(null);
+    setEvents(prev => prev.filter(ev => ev.id !== eventId));
+    if (currentEventId === eventId) {
+      setCurrentEventId(null);
+      setEventData(null);
       setCurrentView('dashboard');
       window.history.pushState({ path: '/' }, '', '/');
     }
 
     try {
-      await fetch(`${API_URL}/sessions/${sessionId}`, {
+      await fetch(`${API_URL}/events/${eventId}`, {
         method: "DELETE",
       });
     } catch (err) {
@@ -135,12 +135,12 @@ export default function App() {
 
   const handleAddParticipant = async (e) => {
     e.preventDefault();
-    if (!newParticipantName.trim() || !currentSessionId) return;
+    if (!newParticipantName.trim() || !currentEventId) return;
     const nameToAdd = newParticipantName;
     setNewParticipantName("");
 
     const tempParticipant = { id: Date.now(), name: nameToAdd };
-    setSessionData(prev => ({
+    setEventData(prev => ({
       ...prev,
       participants: [...(prev?.participants || []), tempParticipant]
     }));
@@ -149,18 +149,18 @@ export default function App() {
       await fetch(`${API_URL}/participants/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nameToAdd, session_id: currentSessionId })
+        body: JSON.stringify({ name: nameToAdd, event_id: currentEventId })
       });
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error adding participant:", err);
-      fetchSessionDetails(currentSessionId);
+      fetchEventDetails(currentEventId);
     }
   };
 
   const handleDeleteParticipant = async (participantId) => {
-    setSessionData(prev => ({
+    setEventData(prev => ({
       ...prev,
       participants: (prev?.participants || []).filter(p => p.id !== participantId)
     }));
@@ -169,16 +169,16 @@ export default function App() {
       await fetch(`${API_URL}/participants/${participantId}`, {
         method: "DELETE",
       });
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting participant:", err);
-      fetchSessionDetails(currentSessionId);
+      fetchEventDetails(currentEventId);
     }
   };
 
   const handleDeleteReceipt = async (receiptId) => {
-    setSessionData(prev => ({
+    setEventData(prev => ({
       ...prev,
       receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
     }));
@@ -187,18 +187,18 @@ export default function App() {
       await fetch(`${API_URL}/receipts/${receiptId}`, {
         method: "DELETE",
       });
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
       if (activeReceiptId === receiptId) setActiveReceiptId(null);
     } catch (err) {
       console.error("Error deleting receipt:", err);
-      fetchSessionDetails(currentSessionId);
+      fetchEventDetails(currentEventId);
     }
   };
 
   const handleAddReceipt = async (e) => {
     e.preventDefault();
-    if (!receiptTitle.trim() || !receiptAmount || !currentSessionId) return;
+    if (!receiptTitle.trim() || !receiptAmount || !currentEventId) return;
     try {
       await fetch(`${API_URL}/receipts/`, {
         method: "POST",
@@ -206,13 +206,13 @@ export default function App() {
         body: JSON.stringify({ 
           title: receiptTitle, 
           total_amount: parseFloat(receiptAmount), 
-          session_id: currentSessionId 
+          event_id: currentEventId 
         })
       });
       setReceiptTitle("");
       setReceiptAmount("");
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error adding receipt:", err);
     }
@@ -220,7 +220,7 @@ export default function App() {
 
   const handleGeminiBulkUpload = async (e) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !currentSessionId) return;
+    if (!files || files.length === 0 || !currentEventId) return;
 
     setIsUploading(true);
     const formData = new FormData();
@@ -229,7 +229,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/sessions/${currentSessionId}/receipts/gemini-bulk-upload`, {
+      const res = await fetch(`${API_URL}/events/${currentEventId}/receipts/gemini-bulk-upload`, {
         method: "POST",
         body: formData,
       });
@@ -239,8 +239,8 @@ export default function App() {
         throw new Error(data.detail || "Server error during upload.");
       }
 
-      fetchSessionDetails(currentSessionId);
-      fetchSettlement(currentSessionId);
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error uploading receipts with Gemini:", err);
       alert("Upload failed: " + err.message);
@@ -251,7 +251,7 @@ export default function App() {
   };
 
   const handleToggleParticipant = async (item, participantId) => {
-    setSessionData(prev => {
+    setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
         ...r,
@@ -281,10 +281,10 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participant_ids: newIds })
       });
-      fetchSettlement(currentSessionId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item assignments:", err);
-      fetchSessionDetails(currentSessionId);
+      fetchEventDetails(currentEventId);
     }
   };
 
@@ -292,7 +292,7 @@ export default function App() {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     const newAmount = cleanedValue === "" ? 0 : parseFloat(cleanedValue) || 0;
 
-    setSessionData(prevData => {
+    setEventData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === receipt.id) {
@@ -314,7 +314,7 @@ export default function App() {
     });
 
     try {
-      const targetReceipt = sessionData?.receipts?.find(r => r.id === receipt.id);
+      const targetReceipt = eventData?.receipts?.find(r => r.id === receipt.id);
       const existingPayers = targetReceipt?.payers || [];
       
       let updatedPayers = existingPayers.map(p => ({
@@ -334,20 +334,20 @@ export default function App() {
         body: JSON.stringify({ payers: updatedPayers })
       });
       
-      fetchSettlement(currentSessionId);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating payer amount:", err);
     }
   };
 
   const handleShareLink = () => {
-    const url = `${window.location.origin}/?session=${currentSessionId}&view=summary`;
+    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const activeReceipt = sessionData?.receipts?.find(r => r.id === activeReceiptId);
+  const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
@@ -376,10 +376,10 @@ export default function App() {
             <div className="bg-black text-white p-2 rounded-lg shadow-sm">
               <Receipt className="w-5 h-5"/>
             </div>
-            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentSessionId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
           </div>
           
-          {sessionData && (
+          {eventData && (
             <button 
               onClick={handleShareLink}
               className="sm:hidden flex items-center gap-1.5 bg-black text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
@@ -390,7 +390,7 @@ export default function App() {
           )}
         </div>
 
-        {currentSessionId && (
+        {currentEventId && (
           <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-auto justify-center">
             <button
               onClick={() => { setCurrentView('dashboard'); setActiveReceiptId(null); }}
@@ -411,10 +411,10 @@ export default function App() {
           </div>
         )}
 
-        {sessionData && (
+        {eventData && (
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
-              Event: <span className="text-black font-semibold">{sessionData?.name}</span>
+              Event: <span className="text-black font-semibold">{eventData?.name}</span>
             </div>
             
             <button 
@@ -465,14 +465,14 @@ export default function App() {
                 </div>
               )}
             </div>
-          ) : currentView === 'summary' && currentSessionId ? (
+          ) : currentView === 'summary' && currentEventId ? (
             <div className="space-y-4 sticky top-24">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-black"/> Event Photos
               </h2>
               <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
-                {sessionData?.receipts?.filter(r => r.image_url).length > 0 ? (
-                  sessionData.receipts.map(r => r.image_url && (
+                {eventData?.receipts?.filter(r => r.image_url).length > 0 ? (
+                  eventData.receipts.map(r => r.image_url && (
                     <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
                       <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
                         <span className="text-xs font-bold text-black">{r.title}</span>
@@ -508,12 +508,12 @@ export default function App() {
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <Plus className="w-4 h-4 text-black"/> New Event
                 </h2>
-                <form onSubmit={handleCreateSession} className="space-y-3">
+                <form onSubmit={handleCreateEvent} className="space-y-3">
                   <input
                     type="text"
                     placeholder="e.g., Weekend Trip, Dinner"
-                    value={newSessionName}
-                    onChange={(e) => setNewSessionName(e.target.value)}
+                    value={newEventName}
+                    onChange={(e) => setNewEventName(e.target.value)}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black transition-colors"
                   />
                   <button
@@ -525,26 +525,26 @@ export default function App() {
                 </form>
               </div>
 
-              {Array.isArray(sessions) && sessions.length > 0 && (
+              {Array.isArray(events) && events.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Events</h3>
                   <div className="space-y-1.5">
-                    {sessions.map((s) => (
-                      <div key={s.id} className={`flex items-center justify-between rounded-xl transition-all border ${currentSessionId === s.id ? 'bg-neutral-900 text-white shadow-xs border-transparent' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-100'}`}>
+                    {events.map((ev) => (
+                      <div key={ev.id} className={`flex items-center justify-between rounded-xl transition-all border ${currentEventId === ev.id ? 'bg-neutral-900 text-white shadow-xs border-transparent' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-100'}`}>
                         <button
                           onClick={() => {
-                            setCurrentSessionId(s.id);
+                            setCurrentEventId(ev.id);
                             setActiveReceiptId(null);
                             setCurrentView('dashboard');
                           }}
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
-                          <span className="truncate pr-2">{s.name}</span>
-                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentSessionId === s.id ? 'text-white' : 'text-neutral-400'}`} />
+                          <span className="truncate pr-2">{ev.name}</span>
+                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
                         </button>
                         <button
-                          onClick={(e) => handleDeleteSession(e, s.id)}
-                          className={`px-3 py-3 transition-colors ${currentSessionId === s.id ? 'text-neutral-400 hover:text-red-400' : 'text-neutral-400 hover:text-red-600'}`}
+                          onClick={(e) => handleDeleteEvent(e, ev.id)}
+                          className={`px-3 py-3 transition-colors ${currentEventId === ev.id ? 'text-neutral-400 hover:text-red-400' : 'text-neutral-400 hover:text-red-600'}`}
                           title="Delete Event"
                         >
                           <Trash2 className="w-4 h-4"/>
@@ -560,7 +560,7 @@ export default function App() {
 
         {/* RIGHT COLUMN: CONTENT */}
         <div className="md:col-span-2 space-y-6">
-          {!currentSessionId ? (
+          {!currentEventId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-black mb-4 shadow-xs">
                 <Receipt className="w-6 h-6"/>
@@ -579,7 +579,7 @@ export default function App() {
                     let currentTitle = "Other Items";
                     
                     (p.items || []).forEach(item => {
-                        const matchedReceipt = sessionData?.receipts?.find(r => 
+                        const matchedReceipt = eventData?.receipts?.find(r => 
                             r.items?.some(ri => ri.name === item.name)
                         );
                         
@@ -722,7 +722,7 @@ export default function App() {
                       <p className="text-sm font-semibold text-neutral-700 whitespace-nowrap shrink-0">{formatIDR(item.price)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {sessionData?.participants?.map((p) => {
+                      {eventData?.participants?.map((p) => {
                         const isSelected = item.participants?.some(ip => ip.id === p.id);
                         return (
                           <button
@@ -785,7 +785,7 @@ export default function App() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
-                {/* RECEIPTS CARD (MOVED TO LEFT / TOP) */}
+                {/* RECEIPTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -831,7 +831,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* PARTICIPANTS CARD (MOVED TO RIGHT / BOTTOM) */}
+                {/* PARTICIPANTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -850,7 +850,7 @@ export default function App() {
                       </button>
                     </form>
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                      {sessionData?.participants?.map((p) => (
+                      {eventData?.participants?.map((p) => (
                         <div key={p.id} className="bg-neutral-50 border border-neutral-200/60 px-3.5 py-2 rounded-xl text-sm flex items-center justify-between text-neutral-800">
                           <span>{p.name}</span>
                           <button
@@ -862,7 +862,7 @@ export default function App() {
                           </button>
                         </div>
                       ))}
-                      {(!sessionData?.participants || sessionData?.participants.length === 0) && (
+                      {(!eventData?.participants || eventData?.participants.length === 0) && (
                         <p className="text-xs text-neutral-400 italic">No participants added yet.</p>
                       )}
                     </div>
@@ -879,7 +879,7 @@ export default function App() {
                   </h3>
                 </div>
                 <div className="space-y-4">
-                  {sessionData?.receipts?.map((r) => {
+                  {eventData?.receipts?.map((r) => {
                     const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (parseFloat(curr.amount_paid) || 0), 0) || 0;
                     const isUnderpaid = totalPaidForReceipt < r.total_amount;
 
@@ -925,7 +925,7 @@ export default function App() {
                             )}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {sessionData?.participants?.map((p) => {
+                            {eventData?.participants?.map((p) => {
                               const existingPayer = r.payers?.find(pr => pr.participant_id === p.id);
                               const paidAmount = existingPayer && existingPayer.amount_paid !== 0 ? existingPayer.amount_paid : "";
                               return (
@@ -949,7 +949,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {(!sessionData?.receipts || sessionData?.receipts.length === 0) && (
+                  {(!eventData?.receipts || eventData?.receipts.length === 0) && (
                     <p className="text-xs text-neutral-400 italic text-center py-4">No receipts recorded yet.</p>
                   )}
                 </div>
