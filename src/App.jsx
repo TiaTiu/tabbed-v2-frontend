@@ -35,6 +35,15 @@ export default function App() {
     }).format(rounded);
   };
 
+  const formatNumberOnly = (amount) => {
+    if (amount == null || isNaN(amount)) return "0";
+    const rounded = Math.round(amount);
+    const formatted = new Intl.NumberFormat('id-ID', {
+      maximumFractionDigits: 0,
+    }).format(Math.abs(rounded));
+    return rounded < 0 ? `-${formatted}` : formatted;
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionParam = params.get('session');
@@ -539,39 +548,68 @@ export default function App() {
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
                 <div className="space-y-6">
-                  {settlement?.participant_breakdown?.map((p, idx) => (
-                    <div key={idx} className="bg-neutral-50 border border-neutral-200 p-5 rounded-2xl space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">
-                            {p.name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-bold text-lg text-black">{p.name}</span>
-                        </div>
-                        <span className="font-bold text-lg text-black whitespace-nowrap shrink-0">{formatIDR(p.total_spent)}</span>
-                      </div>
+                  {settlement?.participant_breakdown?.map((p, idx) => {
+                    // GROUPING LOGIC BY RECEIPT TITLE
+                    const groupedItems = [];
+                    let currentTitle = "Other Items";
+                    
+                    (p.items || []).forEach(item => {
+                        const matchedReceipt = sessionData?.receipts?.find(r => 
+                            r.items?.some(ri => ri.name === item.name)
+                        );
+                        
+                        if (matchedReceipt) {
+                            currentTitle = matchedReceipt.title;
+                        }
+                        
+                        let group = groupedItems.find(g => g.title === currentTitle);
+                        if (!group) {
+                            group = { title: currentTitle, items: [] };
+                            groupedItems.push(group);
+                        }
+                        group.items.push(item);
+                    });
 
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Rincian pesanan</p>
-                        {p.items?.map((item, iIdx) => {
-                          const displayName = item.name ? item.name.replace(' (Proportional)', '') : '';
-                          return (
-                            <div key={iIdx} className="flex justify-between items-start text-sm py-1.5 gap-4">
-                              <div className="flex items-center flex-wrap gap-2">
-                                <span className="text-neutral-700 leading-snug">{displayName}</span>
-                                {item.quantity > 1 && (
-                                  <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
-                                    x{item.quantity}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0 text-right">{formatIDR(item.price)}</span>
+                    return (
+                      <div key={idx} className="bg-neutral-50 border border-neutral-200 p-5 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">
+                              {p.name.charAt(0).toUpperCase()}
                             </div>
-                          );
-                        })}
+                            <span className="font-bold text-lg text-black">{p.name}</span>
+                          </div>
+                          <span className="font-bold text-lg text-black whitespace-nowrap shrink-0">{formatIDR(p.total_spent)}</span>
+                        </div>
+
+                        <div className="space-y-5">
+                          {groupedItems.map((group, gIdx) => (
+                            <div key={gIdx} className="space-y-1">
+                              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-200/60 pb-1.5 mb-2">{group.title}</p>
+                              {group.items.map((item, iIdx) => {
+                                const displayName = item.name ? item.name.replace(' (Proportional)', '') : '';
+                                return (
+                                  <div key={iIdx} className="flex justify-between items-start text-sm py-1.5 gap-4">
+                                    <div className="flex items-center flex-wrap gap-2">
+                                      <span className="text-neutral-700 leading-snug">{displayName}</span>
+                                      {item.quantity > 1 && (
+                                        <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
+                                          x{item.quantity}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0 text-right">
+                                      {formatNumberOnly(item.price)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {(!settlement?.participant_breakdown || settlement.participant_breakdown.length === 0) && (
                     <p className="text-sm text-neutral-500 italic">No items assigned yet.</p>
                   )}
