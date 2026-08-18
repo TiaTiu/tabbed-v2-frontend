@@ -19,6 +19,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
   const [modalImage, setModalImage] = useState(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
@@ -356,29 +357,68 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // INSTANT WHATSAPP TEXT SHARE (Bypasses html2canvas & oklch crashes)
-  const handleOpenShareModal = () => {
-    const eventName = eventData?.name || 'Event';
-    let text = `📊 *Bill Summary - ${eventName}* 📊\n\n`;
-    
-    text += `*Participant Breakdown:*\n`;
-    settlement?.participant_breakdown?.forEach(p => {
-      text += `- ${p.name}: Spent ${formatIDR(p.total_spent)} (Paid ${formatIDR(p.total_paid)})\n`;
-    });
+  // GOPAY STYLE NATIVE IMAGE SHARE HANDLER
+  const handleOpenShareModal = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
 
-    text += `\n*Recommended Settlements:*\n`;
-    if (settlement?.settlements?.length > 0) {
-      settlement.settlements.forEach(s => {
-        text += `👉 ${s.from} ➔ ${s.to}: *${formatIDR(s.amount)}*\n`;
-      });
-    } else {
-      text += `No transfers required.\n`;
+    const summaryElement = document.getElementById('receipt-summary-card');
+    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
+    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
+
+    if (!summaryElement || typeof window.html2canvas === 'undefined') {
+      handleShareLink();
+      setIsSharing(false);
+      return;
     }
 
-    text += `\n🔗 View full app: ${window.location.origin}/?event=${currentEventId}&view=summary`;
+    try {
+      const canvas = await window.html2canvas(summaryElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+          const clonedCard = clonedDoc.getElementById('receipt-summary-card');
+          if (clonedCard) {
+            clonedCard.style.backgroundColor = '#ffffff';
+            clonedCard.style.color = '#171717';
+          }
+        }
+      });
 
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(whatsappUrl, '_blank');
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          handleShareLink();
+          setIsSharing(false);
+          return;
+        }
+
+        const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
+        const shareData = {
+          title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+          text: baseText,
+          files: [file]
+        };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          try {
+            await navigator.share(shareData);
+          } catch (err) {
+            if (err.name !== 'AbortError') handleShareLink();
+          }
+        } else if (navigator.share) {
+          await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
+        } else {
+          handleShareLink();
+        }
+        setIsSharing(false);
+      }, 'image/png');
+    } catch (err) {
+      console.error("Canvas generation error:", err);
+      handleShareLink();
+      setIsSharing(false);
+    }
   };
 
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
@@ -416,9 +456,10 @@ export default function App() {
           {eventData && currentView === 'summary' && (
             <button 
               onClick={handleOpenShareModal}
-              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all"
+              disabled={isSharing}
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
             >
-              <Share2 className="w-3.5 h-3.5"/> Share
+              <Share2 className="w-3.5 h-3.5"/> {isSharing ? "Loading..." : "Share"}
             </button>
           )}
         </div>
@@ -453,9 +494,10 @@ export default function App() {
             {currentView === 'summary' && (
               <button 
                 onClick={handleOpenShareModal}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
+                disabled={isSharing}
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
               >
-                <Share2 className="w-3.5 h-3.5"/> Share
+                <Share2 className="w-3.5 h-3.5"/> {isSharing ? "Loading..." : "Share"}
               </button>
             )}
           </div>
@@ -1021,7 +1063,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>
