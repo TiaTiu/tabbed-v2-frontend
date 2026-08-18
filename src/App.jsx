@@ -22,11 +22,17 @@ export default function App() {
 
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
+    const rounded = Math.round(amount);
+    if (rounded < 0) {
+      return `-Rp ${new Intl.NumberFormat('id-ID', {
+        maximumFractionDigits: 0,
+      }).format(Math.abs(rounded))}`;
+    }
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+      maximumFractionDigits: 0,
+    }).format(rounded);
   };
 
   useEffect(() => {
@@ -137,6 +143,25 @@ export default function App() {
       fetchSettlement(currentSessionId);
     } catch (err) {
       console.error("Error deleting participant:", err);
+      fetchSessionDetails(currentSessionId);
+    }
+  };
+
+  const handleDeleteReceipt = async (receiptId) => {
+    setSessionData(prev => ({
+      ...prev,
+      receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
+    }));
+
+    try {
+      await fetch(`${API_URL}/receipts/${receiptId}`, {
+        method: "DELETE",
+      });
+      fetchSessionDetails(currentSessionId);
+      fetchSettlement(currentSessionId);
+      if (activeReceiptId === receiptId) setActiveReceiptId(null);
+    } catch (err) {
+      console.error("Error deleting receipt:", err);
       fetchSessionDetails(currentSessionId);
     }
   };
@@ -740,7 +765,7 @@ export default function App() {
                     
                     <div className="mb-4">
                       <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
-                        {isUploading ? "Uploading & Scanning..." : "Upload Receipts (Gemini AI)"}
+                        {isUploading ? "Uploading & Scanning..." : "Upload Receipts"}
                       </label>
                       <input
                         type="file"
@@ -780,9 +805,11 @@ export default function App() {
 
               {/* SCANNED RECEIPTS LIST */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
-                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-black"/> Scanned Receipts
-                </h3>
+                 <div className="flex items-center justify-between mb-4">
+                   <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-black"/> Scanned Receipts
+                  </h3>
+                </div>
                 <div className="space-y-4">
                   {sessionData?.receipts?.map((r) => {
                     const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (parseFloat(curr.amount_paid) || 0), 0) || 0;
@@ -802,13 +829,20 @@ export default function App() {
                               <div className="text-xs text-neutral-500">{r.items?.length || 0} items extracted</div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                             <span className="font-semibold text-black">{formatIDR(r.total_amount)}</span>
                             <button
                               onClick={() => setActiveReceiptId(r.id)}
                               className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
                             >
                               Assign
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReceipt(r.id)}
+                              className="text-neutral-400 hover:text-red-600 transition-colors p-2"
+                              title="Delete receipt"
+                            >
+                              <Trash2 className="w-4 h-4"/>
                             </button>
                           </div>
                         </div>
