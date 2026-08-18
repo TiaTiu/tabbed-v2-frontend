@@ -162,7 +162,11 @@ export default function App() {
   const handleDeleteParticipant = async (participantId) => {
     setEventData(prev => ({
       ...prev,
-      participants: (prev?.participants || []).filter(p => p.id !== participantId)
+      participants: (prev?.participants || []).filter(p => p.id !== participantId),
+      receipts: (prev?.receipts || []).map(r => ({
+        ...r,
+        payers: (r.payers || []).filter(pr => pr.participant_id !== participantId)
+      }))
     }));
 
     try {
@@ -291,7 +295,6 @@ export default function App() {
   const handleUpdatePayerAmount = (receipt, participantId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
 
-    // 1. Instantly update local UI state so typing is never interrupted or truncated
     setEventData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
