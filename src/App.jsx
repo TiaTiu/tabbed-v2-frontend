@@ -19,9 +19,10 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
   const [modalImage, setModalImage] = useState(null);
-  const [isSharing, setIsSharing] = useState(false);
   
-  const [shareFile, setShareFile] = useState(null);
+  // NEW: State for the generated share image modal
+  const [isSharing, setIsSharing] = useState(false);
+  const [summaryImageData, setSummaryImageData] = useState(null);
 
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
@@ -74,33 +75,6 @@ export default function App() {
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
   }, [currentEventId, currentView]);
-
-  useEffect(() => {
-    let timeoutId;
-    if (currentView === 'summary' && eventData && settlement) {
-      timeoutId = setTimeout(() => {
-        const summaryElement = document.getElementById('receipt-summary-card');
-        if (summaryElement && window.html2canvas) {
-          window.html2canvas(summaryElement, {
-            scale: 2, 
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            logging: false
-          }).then(canvas => {
-            canvas.toBlob(blob => {
-              if (blob) {
-                const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
-                setShareFile(file);
-              }
-            }, 'image/png');
-          }).catch(console.error);
-        }
-      }, 1500); 
-    } else {
-      setShareFile(null); 
-    }
-    return () => clearTimeout(timeoutId);
-  }, [currentView, eventData, settlement]);
 
   const fetchEventDetails = async (id) => {
     try {
@@ -386,65 +360,41 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleNativeShare = async () => {
+  // NEW: Triggers canvas generation and opens the Modal instead of forcing native share sheet
+  const handleOpenShareModal = async () => {
     if (isSharing) return;
     setIsSharing(true);
 
-    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
-    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
-    const shareTitle = eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary';
-
-    // Link-only fallback payload
-    const linkShareData = {
-      title: shareTitle,
-      text: baseText,
-      url: url,
-    };
+    const summaryElement = document.getElementById('receipt-summary-card');
+    
+    if (!summaryElement || typeof window.html2canvas === 'undefined') {
+      handleShareLink();
+      setIsSharing(false);
+      return;
+    }
 
     try {
-      let finalFile = shareFile;
+      const canvas = await window.html2canvas(summaryElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
 
-      // If background generation hasn't finished, try to generate it immediately on click
-      if (!finalFile) {
-        const summaryElement = document.getElementById('receipt-summary-card');
-        if (summaryElement && window.html2canvas) {
-          const canvas = await window.html2canvas(summaryElement, {
-            scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+      canvas.toBlob((blob) => {
+        if (blob) {
+          setSummaryImageData({
+            dataUrl: canvas.toDataURL('image/png'),
+            blob: blob
           });
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-          if (blob) finalFile = new File([blob], 'bill-summary.png', { type: 'image/png' });
+        } else {
+          handleShareLink();
         }
-      }
-
-      // 🚨 CRITICAL FIX FOR IOS WHATSAPP 🚨
-      // If sharing an image, DO NOT include the 'url' property, or iOS will drop the image.
-      // Instead, we bundle the URL directly into the text string!
-      if (finalFile && navigator.canShare) {
-        const imageShareData = {
-          title: shareTitle,
-          text: `${baseText}\n\nLink: ${url}`, // <-- URL is safely inside the text payload
-          files: [finalFile] // <-- No 'url' key here
-        };
-
-        if (navigator.canShare(imageShareData)) {
-          await navigator.share(imageShareData);
-          setIsSharing(false);
-          return;
-        }
-      }
-
-      // Fallback: If no file could be made or device doesn't support file sharing
-      if (navigator.share) {
-        await navigator.share(linkShareData);
-      } else {
-        handleShareLink();
-      }
+        setIsSharing(false);
+      }, 'image/png');
     } catch (err) {
-      console.error("Native share failed:", err);
-      if (err.name !== 'AbortError') {
-        handleShareLink();
-      }
-    } finally {
+      console.error("Canvas error:", err);
+      handleShareLink();
       setIsSharing(false);
     }
   };
@@ -453,6 +403,69 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
+      
+      {/* 📸 NEW GENERATED IMAGE SHARE MODAL 📸 */}
+      {summaryImageData && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 shadow-2xl">
+            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-white shrink-0">
+              <h3 className="font-bold text-neutral-900">Share Summary</h3>
+              <button
+                onClick={() => setSummaryImageData(null)}
+                className="bg-neutral-100 hover:bg-neutral-200 p-2 rounded-full text-neutral-700 transition-colors"
+              >
+                <X className="w-4 h-4"/>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto p-5 sm:p-6 bg-neutral-50 flex flex-col items-center flex-1">
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-3 rounded-xl mb-4 text-center font-medium shadow-sm w-full">
+                💡 Long-press the image below to Share or Save to Photos.
+              </div>
+              <img 
+                src={summaryImageData.dataUrl} 
+                alt="Bill Summary Preview" 
+                className="w-full rounded-xl shadow-sm border border-neutral-200 bg-white" 
+              />
+            </div>
+
+            <div className="p-4 border-t border-neutral-200 bg-white space-y-3 shrink-0">
+              <button
+                onClick={async () => {
+                  const file = new File([summaryImageData.blob], 'bill-summary.png', { type: 'image/png' });
+                  const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
+                  const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
+                  
+                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                      await navigator.share({
+                        title: 'Bill Summary',
+                        text: `${baseText}\n\nLink: ${url}`,
+                        files: [file]
+                      });
+                    } catch (e) {
+                      console.error("Native share failed:", e);
+                    }
+                  } else {
+                    handleShareLink();
+                  }
+                }}
+                className="w-full bg-black hover:bg-neutral-800 text-white font-medium py-3 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2"
+              >
+                <Share2 className="w-4 h-4"/> Share via App
+              </button>
+              <button
+                onClick={handleShareLink}
+                className="w-full bg-neutral-100 hover:bg-neutral-200 text-black font-medium py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+              >
+                {copied ? <Check className="w-4 h-4"/> : <ExternalLink className="w-4 h-4"/>}
+                {copied ? "Link Copied!" : "Copy Link"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalImage && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
@@ -483,12 +496,12 @@ export default function App() {
           
           {eventData && currentView === 'summary' && (
             <button 
-              onClick={handleNativeShare}
+              onClick={handleOpenShareModal}
               disabled={isSharing}
-              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-wait"
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
             >
-              {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-              {isSharing ? "Loading..." : copied ? "Copied" : "Share"}
+              <Share2 className="w-3.5 h-3.5"/>
+              {isSharing ? "Loading..." : "Share"}
             </button>
           )}
         </div>
@@ -522,12 +535,12 @@ export default function App() {
             
             {currentView === 'summary' && (
               <button 
-                onClick={handleNativeShare}
+                onClick={handleOpenShareModal}
                 disabled={isSharing}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-wait"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
               >
-                {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-                {isSharing ? "Preparing Image..." : copied ? "Copied Link!" : "Share"}
+                <Share2 className="w-3.5 h-3.5"/>
+                {isSharing ? "Loading..." : "Share"}
               </button>
             )}
           </div>
