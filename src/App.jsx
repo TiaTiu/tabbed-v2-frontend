@@ -18,8 +18,10 @@ export default function App() {
   const [activeReceiptId, setActiveReceiptId] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
   const [modalImage, setModalImage] = useState(null);
+  
+  // NEW: State to hold the pre-generated screenshot for instant Safari sharing
+  const [shareFile, setShareFile] = useState(null);
 
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
@@ -72,6 +74,36 @@ export default function App() {
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
   }, [currentEventId, currentView]);
+
+  // NEW: Pre-generate the canvas screenshot in the background to bypass Safari's 1-second security timeout
+  useEffect(() => {
+    let timeoutId;
+    if (currentView === 'summary' && eventData && settlement) {
+      // Delay slightly to ensure fonts and layout finish rendering
+      timeoutId = setTimeout(() => {
+        const summaryElement = document.getElementById('receipt-summary-card');
+        if (summaryElement && window.html2canvas) {
+          window.html2canvas(summaryElement, {
+            scale: 2, // High resolution
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false
+          }).then(canvas => {
+            canvas.toBlob(blob => {
+              if (blob) {
+                const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
+                setShareFile(file);
+              }
+            }, 'image/png');
+          }).catch(console.error);
+        }
+      }, 1000);
+    } else {
+      setShareFile(null); // Clear old image if leaving summary
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [currentView, eventData, settlement]);
 
   const fetchEventDetails = async (id) => {
     try {
@@ -358,75 +390,34 @@ export default function App() {
   };
 
   const handleNativeShare = async () => {
-    if (isSharing) return;
-    
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
+    
     const baseShareData = {
       title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
       text: baseText,
       url: url,
     };
 
-    const summaryElement = document.getElementById('receipt-summary-card');
-    
-    // If no html2canvas loaded or element missing, fallback to native text share
-    if (!summaryElement || typeof window.html2canvas === 'undefined') {
-      if (navigator.share) {
-        try { await navigator.share(baseShareData); } catch (e) { handleShareLink(); }
-      } else {
+    try {
+      // If image was successfully pre-generated in the background, send it instantly
+      if (shareFile && navigator.canShare && navigator.canShare({ ...baseShareData, files: [shareFile] })) {
+        await navigator.share({ ...baseShareData, files: [shareFile] });
+      } 
+      // If image isn't ready or browser doesn't support files, send text + URL instantly
+      else if (navigator.share) {
+        await navigator.share(baseShareData);
+      } 
+      // Absolute fallback
+      else {
         handleShareLink();
       }
-      return;
-    }
-
-    setIsSharing(true);
-
-    try {
-      // Scale optimized to 1.2 to beat iOS Safari's strict 1-second timeout
-      const canvas = await window.html2canvas(summaryElement, {
-        scale: 1.2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-
-      canvas.toBlob(async (blob) => {
-        setIsSharing(false);
-        if (!blob) {
-          handleShareLink();
-          return;
-        }
-
-        const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
-        const shareDataWithFile = {
-          title: baseShareData.title,
-          text: baseText,
-          files: [file]
-        };
-
-        if (navigator.canShare && navigator.canShare(shareDataWithFile)) {
-          try {
-            await navigator.share(shareDataWithFile);
-          } catch (err) {
-            console.error("Image share failed:", err);
-            // Ignore AbortError (happens if user dismisses the share sheet manually)
-            if (err.name !== 'AbortError') handleShareLink();
-          }
-        } else if (navigator.share) {
-          try {
-            await navigator.share(baseShareData);
-          } catch (err) {
-            if (err.name !== 'AbortError') handleShareLink();
-          }
-        } else {
-          handleShareLink();
-        }
-      }, 'image/png');
     } catch (err) {
-      console.error("Canvas error:", err);
-      setIsSharing(false);
-      handleShareLink();
+      console.error("Native share failed:", err);
+      // AbortError happens if the user manually closes the iOS share sheet. Don't show "copied" if they cancelled.
+      if (err.name !== 'AbortError') {
+        handleShareLink();
+      }
     }
   };
 
@@ -462,15 +453,13 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
           </div>
           
-          {/* MOBILE SHARE BUTTON - ONLY SHOWS ON SUMMARY VIEW */}
           {eventData && currentView === 'summary' && (
             <button 
               onClick={handleNativeShare}
-              disabled={isSharing}
-              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-wait"
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all"
             >
               {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-              {isSharing ? "Loading..." : copied ? "Copied" : "Share"}
+              {copied ? "Copied" : "Share"}
             </button>
           )}
         </div>
@@ -496,7 +485,6 @@ export default function App() {
           </div>
         )}
 
-        {/* DESKTOP SHARE BUTTON - ONLY SHOWS ON SUMMARY VIEW */}
         {eventData && (
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
@@ -506,11 +494,10 @@ export default function App() {
             {currentView === 'summary' && (
               <button 
                 onClick={handleNativeShare}
-                disabled={isSharing}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-wait"
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
               >
                 {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-                {isSharing ? "Preparing Image..." : copied ? "Copied Link!" : "Share"}
+                {copied ? "Copied Link!" : "Share"}
               </button>
             )}
           </div>
