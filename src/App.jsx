@@ -19,8 +19,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
   const [modalImage, setModalImage] = useState(null);
+  const [isSharing, setIsSharing] = useState(false);
   
-  // NEW: State to hold the pre-generated screenshot for instant Safari sharing
   const [shareFile, setShareFile] = useState(null);
 
   const formatIDR = (amount) => {
@@ -75,16 +75,14 @@ export default function App() {
     }
   }, [currentEventId, currentView]);
 
-  // NEW: Pre-generate the canvas screenshot in the background to bypass Safari's 1-second security timeout
   useEffect(() => {
     let timeoutId;
     if (currentView === 'summary' && eventData && settlement) {
-      // Delay slightly to ensure fonts and layout finish rendering
       timeoutId = setTimeout(() => {
         const summaryElement = document.getElementById('receipt-summary-card');
         if (summaryElement && window.html2canvas) {
           window.html2canvas(summaryElement, {
-            scale: 2, // High resolution
+            scale: 2, 
             useCORS: true,
             backgroundColor: '#ffffff',
             logging: false
@@ -97,11 +95,10 @@ export default function App() {
             }, 'image/png');
           }).catch(console.error);
         }
-      }, 1000);
+      }, 1500); 
     } else {
-      setShareFile(null); // Clear old image if leaving summary
+      setShareFile(null); 
     }
-
     return () => clearTimeout(timeoutId);
   }, [currentView, eventData, settlement]);
 
@@ -390,34 +387,65 @@ export default function App() {
   };
 
   const handleNativeShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
-    
-    const baseShareData = {
-      title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+    const shareTitle = eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary';
+
+    // Link-only fallback payload
+    const linkShareData = {
+      title: shareTitle,
       text: baseText,
       url: url,
     };
 
     try {
-      // If image was successfully pre-generated in the background, send it instantly
-      if (shareFile && navigator.canShare && navigator.canShare({ ...baseShareData, files: [shareFile] })) {
-        await navigator.share({ ...baseShareData, files: [shareFile] });
-      } 
-      // If image isn't ready or browser doesn't support files, send text + URL instantly
-      else if (navigator.share) {
-        await navigator.share(baseShareData);
-      } 
-      // Absolute fallback
-      else {
+      let finalFile = shareFile;
+
+      // If background generation hasn't finished, try to generate it immediately on click
+      if (!finalFile) {
+        const summaryElement = document.getElementById('receipt-summary-card');
+        if (summaryElement && window.html2canvas) {
+          const canvas = await window.html2canvas(summaryElement, {
+            scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+          });
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          if (blob) finalFile = new File([blob], 'bill-summary.png', { type: 'image/png' });
+        }
+      }
+
+      // 🚨 CRITICAL FIX FOR IOS WHATSAPP 🚨
+      // If sharing an image, DO NOT include the 'url' property, or iOS will drop the image.
+      // Instead, we bundle the URL directly into the text string!
+      if (finalFile && navigator.canShare) {
+        const imageShareData = {
+          title: shareTitle,
+          text: `${baseText}\n\nLink: ${url}`, // <-- URL is safely inside the text payload
+          files: [finalFile] // <-- No 'url' key here
+        };
+
+        if (navigator.canShare(imageShareData)) {
+          await navigator.share(imageShareData);
+          setIsSharing(false);
+          return;
+        }
+      }
+
+      // Fallback: If no file could be made or device doesn't support file sharing
+      if (navigator.share) {
+        await navigator.share(linkShareData);
+      } else {
         handleShareLink();
       }
     } catch (err) {
       console.error("Native share failed:", err);
-      // AbortError happens if the user manually closes the iOS share sheet. Don't show "copied" if they cancelled.
       if (err.name !== 'AbortError') {
         handleShareLink();
       }
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -456,10 +484,11 @@ export default function App() {
           {eventData && currentView === 'summary' && (
             <button 
               onClick={handleNativeShare}
-              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all"
+              disabled={isSharing}
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-wait"
             >
               {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-              {copied ? "Copied" : "Share"}
+              {isSharing ? "Loading..." : copied ? "Copied" : "Share"}
             </button>
           )}
         </div>
@@ -494,10 +523,11 @@ export default function App() {
             {currentView === 'summary' && (
               <button 
                 onClick={handleNativeShare}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
+                disabled={isSharing}
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-wait"
               >
                 {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-                {copied ? "Copied Link!" : "Share"}
+                {isSharing ? "Preparing Image..." : copied ? "Copied Link!" : "Share"}
               </button>
             )}
           </div>
