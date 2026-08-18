@@ -288,10 +288,10 @@ export default function App() {
     }
   };
 
-  const handleUpdatePayerAmount = async (receipt, participantId, rawValue) => {
+  const handleUpdatePayerAmount = (receipt, participantId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
-    const newAmount = cleanedValue === "" ? 0 : parseFloat(cleanedValue) || 0;
 
+    // 1. Instantly update local UI state so typing is never interrupted or truncated
     setEventData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
@@ -299,7 +299,7 @@ export default function App() {
           const existingPayers = r.payers || [];
           let updatedPayers = existingPayers.map(p => ({
             ...p,
-            amount_paid: p.participant_id === participantId ? (cleanedValue === "" ? "" : cleanedValue) : p.amount_paid
+            amount_paid: p.participant_id === participantId ? cleanedValue : p.amount_paid
           }));
 
           if (!updatedPayers.some(p => p.participant_id === participantId) && cleanedValue !== "") {
@@ -312,6 +312,11 @@ export default function App() {
       });
       return { ...prevData, receipts: updatedReceipts };
     });
+  };
+
+  const handleBlurPayerAmount = async (receipt, participantId, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    const newAmount = cleanedValue === "" ? 0 : parseFloat(cleanedValue) || 0;
 
     try {
       const targetReceipt = eventData?.receipts?.find(r => r.id === receipt.id);
@@ -335,6 +340,7 @@ export default function App() {
       });
       
       fetchSettlement(currentEventId);
+      fetchEventDetails(currentEventId);
     } catch (err) {
       console.error("Error updating payer amount:", err);
     }
@@ -574,7 +580,6 @@ export default function App() {
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
                 <div className="space-y-6">
                   {settlement?.participant_breakdown?.map((p, idx) => {
-                    // GROUPING LOGIC BY RECEIPT TITLE
                     const groupedItems = [];
                     let currentTitle = "Other Items";
                     
@@ -688,15 +693,15 @@ export default function App() {
               </div>
             </div>
           ) : activeReceipt ? (
-            <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
               <button
                 onClick={() => setActiveReceiptId(null)}
-                className="flex items-center text-sm font-medium text-neutral-500 hover:text-black transition-colors mb-6"
+                className="flex items-center text-sm font-medium text-neutral-500 hover:text-black transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 mr-2"/> Back to Dashboard
               </button>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-6 border-b border-neutral-100 gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-neutral-100 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-black tracking-tight">{activeReceipt.title}</h2>
                   <p className="text-sm text-neutral-500 mt-1">Assign items to participants</p>
@@ -779,6 +784,14 @@ export default function App() {
                     <span className="text-black whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</span>
                   </div>
                 </div>
+
+                {/* BOTTOM BACK TO DASHBOARD BUTTON */}
+                <button
+                  onClick={() => setActiveReceiptId(null)}
+                  className="w-full mt-6 bg-black hover:bg-neutral-800 text-white font-medium py-3 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4"/> Back to Dashboard
+                </button>
               </div>
             </div>
           ) : (
@@ -938,6 +951,7 @@ export default function App() {
                                       placeholder="0"
                                       value={paidAmount}
                                       onChange={(e) => handleUpdatePayerAmount(r, p.id, e.target.value)}
+                                      onBlur={(e) => handleBlurPayerAmount(r, p.id, e.target.value)}
                                       className="w-28 text-right bg-neutral-50 border border-neutral-200 rounded px-2 py-1 text-xs text-neutral-900 focus:outline-none focus:border-black"
                                     />
                                   </div>
