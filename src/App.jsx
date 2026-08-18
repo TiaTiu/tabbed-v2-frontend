@@ -18,6 +18,7 @@ export default function App() {
   const [activeReceiptId, setActiveReceiptId] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [copied, setCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [modalImage, setModalImage] = useState(null);
 
   const formatIDR = (amount) => {
@@ -357,47 +358,74 @@ export default function App() {
   };
 
   const handleNativeShare = async () => {
+    if (isSharing) return;
+    
+    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
+    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
+    const baseShareData = {
+      title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+      text: baseText,
+      url: url,
+    };
+
     const summaryElement = document.getElementById('receipt-summary-card');
-    if (!summaryElement) {
-      handleShareLink();
+    
+    // If no html2canvas loaded or element missing, fallback to native text share
+    if (!summaryElement || typeof window.html2canvas === 'undefined') {
+      if (navigator.share) {
+        try { await navigator.share(baseShareData); } catch (e) { handleShareLink(); }
+      } else {
+        handleShareLink();
+      }
       return;
     }
 
+    setIsSharing(true);
+
     try {
+      // Scale optimized to 1.2 to beat iOS Safari's strict 1-second timeout
       const canvas = await window.html2canvas(summaryElement, {
-        scale: 2,
+        scale: 1.2,
         useCORS: true,
+        logging: false,
         backgroundColor: '#ffffff'
       });
 
       canvas.toBlob(async (blob) => {
+        setIsSharing(false);
         if (!blob) {
           handleShareLink();
           return;
         }
+
         const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
-        
-        const shareData = {
-          title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
-          text: `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`,
-          url: `${window.location.origin}/?event=${currentEventId}&view=summary`,
+        const shareDataWithFile = {
+          title: baseShareData.title,
+          text: baseText,
           files: [file]
         };
 
-        if (navigator.canShare && navigator.canShare(shareData)) {
-          await navigator.share(shareData);
+        if (navigator.canShare && navigator.canShare(shareDataWithFile)) {
+          try {
+            await navigator.share(shareDataWithFile);
+          } catch (err) {
+            console.error("Image share failed:", err);
+            // Ignore AbortError (happens if user dismisses the share sheet manually)
+            if (err.name !== 'AbortError') handleShareLink();
+          }
         } else if (navigator.share) {
-          await navigator.share({
-            title: shareData.title,
-            text: shareData.text,
-            url: shareData.url,
-          });
+          try {
+            await navigator.share(baseShareData);
+          } catch (err) {
+            if (err.name !== 'AbortError') handleShareLink();
+          }
         } else {
           handleShareLink();
         }
       }, 'image/png');
     } catch (err) {
-      console.error("Error sharing natively:", err);
+      console.error("Canvas error:", err);
+      setIsSharing(false);
       handleShareLink();
     }
   };
@@ -434,13 +462,15 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
           </div>
           
-          {eventData && (
+          {/* MOBILE SHARE BUTTON - ONLY SHOWS ON SUMMARY VIEW */}
+          {eventData && currentView === 'summary' && (
             <button 
               onClick={handleNativeShare}
-              className="sm:hidden flex items-center gap-1.5 bg-black text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
+              disabled={isSharing}
+              className="sm:hidden flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-wait"
             >
               {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-              {copied ? "Copied" : "Share"}
+              {isSharing ? "Loading..." : copied ? "Copied" : "Share"}
             </button>
           )}
         </div>
@@ -466,19 +496,23 @@ export default function App() {
           </div>
         )}
 
+        {/* DESKTOP SHARE BUTTON - ONLY SHOWS ON SUMMARY VIEW */}
         {eventData && (
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
               Event: <span className="text-black font-semibold">{eventData?.name}</span>
             </div>
             
-            <button 
-              onClick={handleNativeShare}
-              className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm"
-            >
-              {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
-              {copied ? "Copied Link!" : "Share"}
-            </button>
+            {currentView === 'summary' && (
+              <button 
+                onClick={handleNativeShare}
+                disabled={isSharing}
+                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-wait"
+              >
+                {copied ? <Check className="w-3.5 h-3.5"/> : <Share2 className="w-3.5 h-3.5"/>}
+                {isSharing ? "Preparing Image..." : copied ? "Copied Link!" : "Share"}
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -624,7 +658,6 @@ export default function App() {
               <p className="text-sm text-neutral-500 max-w-sm">Create a new event on the left or select an existing one.</p>
             </div>
           ) : currentView === 'summary' ? (
-            /* Added id="receipt-summary-card" here so html2canvas targets the entire summary view container nicely */
             <div id="receipt-summary-card" className="space-y-6 bg-white p-2 sm:p-4 rounded-3xl">
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
