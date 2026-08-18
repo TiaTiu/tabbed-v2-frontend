@@ -548,24 +548,27 @@ export default function App() {
                           </div>
                           <span className="font-bold text-lg text-black">{p.name}</span>
                         </div>
-                        <span className="font-bold text-lg text-black">{formatIDR(p.total_spent)}</span>
+                        <span className="font-bold text-lg text-black whitespace-nowrap shrink-0">{formatIDR(p.total_spent)}</span>
                       </div>
 
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Rincian pesanan</p>
-                        {p.items?.map((item, iIdx) => (
-                          <div key={iIdx} className="flex items-center justify-between text-sm py-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-neutral-700">{item.name}</span>
-                              {item.quantity > 1 && (
-                                <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold">
-                                  x{item.quantity}
-                                </span>
-                              )}
+                        {p.items?.map((item, iIdx) => {
+                          const displayName = item.name ? item.name.replace(' (Proportional)', '') : '';
+                          return (
+                            <div key={iIdx} className="flex justify-between items-start text-sm py-1.5 gap-4">
+                              <div className="flex items-center flex-wrap gap-2">
+                                <span className="text-neutral-700 leading-snug">{displayName}</span>
+                                {item.quantity > 1 && (
+                                  <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
+                                    x{item.quantity}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0 text-right">{formatIDR(item.price)}</span>
                             </div>
-                            <span className="font-medium text-neutral-900">{formatIDR(item.price)}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -587,7 +590,7 @@ export default function App() {
                       <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
                         <span className="text-neutral-600">Paid: <strong className="text-black">{formatIDR(p.total_paid)}</strong></span>
                         <span className="text-neutral-600">Spent: <strong className="text-black">{formatIDR(p.total_spent)}</strong></span>
-                        <span className={`px-2.5 py-1 rounded-lg font-semibold ${p.net_balance >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                        <span className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap shrink-0 ${p.net_balance >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                           Net: {formatIDR(p.net_balance)}
                         </span>
                       </div>
@@ -610,7 +613,7 @@ export default function App() {
                           <ArrowRight className="w-4 h-4 text-neutral-400"/>
                           <span className="text-black font-semibold">{s.to}</span>
                         </div>
-                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200">
+                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 whitespace-nowrap shrink-0">
                           {formatIDR(s.amount)}
                         </span>
                       </div>
@@ -637,7 +640,7 @@ export default function App() {
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
-                  <p className="text-2xl font-semibold text-black tracking-tight">{formatIDR(activeReceipt.total_amount)}</p>
+                  <p className="text-2xl font-semibold text-black tracking-tight whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</p>
                 </div>
               </div>
 
@@ -648,12 +651,12 @@ export default function App() {
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
-                          <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold">
+                          <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
                             x{item.quantity}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-neutral-700">{formatIDR(item.price)}</p>
+                      <p className="text-sm font-semibold text-neutral-700 whitespace-nowrap shrink-0">{formatIDR(item.price)}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {sessionData?.participants?.map((p) => {
@@ -678,39 +681,39 @@ export default function App() {
 
                 {/* RECEIPT FINANCIAL BREAKDOWN SUMMARY */}
                 <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-2.5 mt-6">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm gap-4">
                     <span className="text-neutral-500">Subtotal</span>
-                    <span className="font-medium text-neutral-900">
+                    <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">
                       {formatIDR(activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0))}
                     </span>
                   </div>
                   {activeReceipt.tax != null && activeReceipt.tax !== 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm gap-4">
                       <span className="text-neutral-500">Tax (Pajak)</span>
-                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.tax)}</span>
+                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.tax)}</span>
                     </div>
                   )}
                   {activeReceipt.service != null && activeReceipt.service !== 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm gap-4">
                       <span className="text-neutral-500">Service (Servis)</span>
-                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.service)}</span>
+                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.service)}</span>
                     </div>
                   )}
                   {activeReceipt.discount != null && activeReceipt.discount !== 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm gap-4">
                       <span className="text-neutral-500">Discount (Diskon)</span>
-                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.discount)}</span>
+                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.discount)}</span>
                     </div>
                   )}
                   {activeReceipt.others != null && activeReceipt.others !== 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm gap-4">
                       <span className="text-neutral-500">Others / Delivery (Lainnya)</span>
-                      <span className="font-medium text-neutral-900">{formatIDR(activeReceipt.others)}</span>
+                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.others)}</span>
                     </div>
                   )}
-                  <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold">
+                  <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold gap-4">
                     <span className="text-black">Total</span>
-                    <span className="text-black">{formatIDR(activeReceipt.total_amount)}</span>
+                    <span className="text-black whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</span>
                   </div>
                 </div>
               </div>
@@ -830,7 +833,7 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                            <span className="font-semibold text-black">{formatIDR(r.total_amount)}</span>
+                            <span className="font-semibold text-black whitespace-nowrap shrink-0">{formatIDR(r.total_amount)}</span>
                             <button
                               onClick={() => setActiveReceiptId(r.id)}
                               className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
@@ -901,7 +904,7 @@ export default function App() {
                           <ArrowRight className="w-4 h-4 text-neutral-400"/>
                           <span className="text-black font-semibold">{s.to}</span>
                         </div>
-                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 shadow-2xs">
+                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 shadow-2xs whitespace-nowrap shrink-0">
                           {formatIDR(s.amount)}
                         </span>
                       </div>
