@@ -1067,7 +1067,7 @@ export default function App() {
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
                 </h3>
                 <div className="space-y-2">
-                  {settlement?.settlements && settlement.settlements.length > 0 ?,
+                  {settlement?.settlements && settlement.settlements.length > 0 ? (
                     settlement.settlements.map((s, index) => (
                       <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
                         <div className="flex items-center gap-2 font-medium">
