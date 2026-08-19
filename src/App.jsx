@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle } from 'lucide-react';
+import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
@@ -299,6 +299,37 @@ export default function App() {
     }
   };
 
+  // Editable Item Price Handlers
+  const handleUpdateItemPriceLocally = (itemId, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    setEventData(prevData => {
+      if (!prevData) return prevData;
+      const updatedReceipts = prevData.receipts.map(r => ({
+        ...r,
+        items: r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item)
+      }));
+      return { ...prevData, receipts: updatedReceipts };
+    });
+  };
+
+  const handleBlurItemPrice = async (itemId, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    const newPrice = cleanedValue === "" ? 0 : parseFloat(cleanedValue);
+
+    try {
+      await fetch(`${API_URL}/items/${itemId}/price`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price: newPrice })
+      });
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
+    } catch (err) {
+      console.error("Error updating item price:", err);
+      fetchEventDetails(currentEventId);
+    }
+  };
+
   const handleUpdatePayerAmount = (receipt, participantId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
 
@@ -425,7 +456,6 @@ export default function App() {
       } else if (isMobile && navigator.share) {
         await navigator.share({ title: shareData.title, text: baseText });
       } else {
-        // Desktop fallback: Open beautiful preview modal
         const objectUrl = URL.createObjectURL(blob);
         setDesktopShareImage(objectUrl);
         setDesktopShareText(baseText);
@@ -433,7 +463,7 @@ export default function App() {
       }
     } catch (err) {
       console.error("Image generation/share error:", err);
-      handleShareLink(); // Fallback to raw copy on failure
+      handleShareLink();
     } finally {
       setIsSharing(false); 
     }
@@ -462,7 +492,7 @@ export default function App() {
       {copied && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <Check className="w-4 h-4 text-green-400"/>
-          <span className="text-sm font-semibold">Copied to clipboard!</span>
+          <span className="text-sm font-semibold">Copied to clipboard successfully!</span>
         </div>
       )}
 
@@ -480,20 +510,25 @@ export default function App() {
               </button>
             </div>
             <div className="p-6 bg-neutral-50 flex flex-col gap-4">
-              <p className="text-sm text-neutral-500 font-medium">Ready to share! You can copy the image or the text below to paste into WhatsApp Web.</p>
+              <p className="text-sm text-neutral-500 font-medium">Ready to share! You can copy both the image and the message together to paste into WhatsApp Web.</p>
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start">
-                 {/* image snippet preview */}
                  <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-100 relative shadow-sm">
                    <img src={desktopShareImage} className="w-full h-auto object-cover object-top absolute top-0" alt="Preview snippet" />
                  </div>
-                 {/* text snippet preview */}
                  <div className="text-sm text-neutral-700 whitespace-pre-wrap flex-1 bg-green-50/30 p-3 rounded-xl border border-green-100 font-medium">
                    {desktopShareText}
                  </div>
               </div>
             </div>
-            <div className="p-4 sm:p-6 bg-white border-t border-neutral-200 flex flex-col sm:flex-row gap-3">
+            <div className="p-4 sm:p-6 bg-white border-t border-neutral-200 flex gap-3">
                <button onClick={async () => {
+                 // Copy text message first
+                 if (navigator.clipboard && window.isSecureContext) {
+                   await navigator.clipboard.writeText(desktopShareText);
+                 } else {
+                   fallbackCopyTextToClipboard(desktopShareText);
+                 }
+                 // Attempt to copy image as well
                  try {
                    const response = await fetch(desktopShareImage);
                    const blob = await response.blob();
@@ -502,19 +537,10 @@ export default function App() {
                    ]);
                    showCopiedToast();
                  } catch (err) {
-                   alert("Direct image copying is not supported in this browser. Please right-click the image above to copy it.");
+                   showCopiedToast(); // Text copied successfully at least
                  }
-               }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-black font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
-                 <Share2 className="w-4 h-4" /> Copy Image
-               </button>
-               <button onClick={() => {
-                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(desktopShareText).then(showCopiedToast).catch(() => fallbackCopyTextToClipboard(desktopShareText));
-                 } else {
-                    fallbackCopyTextToClipboard(desktopShareText);
-                 }
-               }} className="flex-1 bg-black hover:bg-neutral-800 text-white font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
-                 <FileText className="w-4 h-4" /> Copy Message
+               }} className="w-full bg-black hover:bg-neutral-800 text-white font-semibold py-3.5 rounded-2xl transition-all text-sm flex justify-center items-center gap-2 shadow-sm">
+                 <Copy className="w-4 h-4" /> Copy Image & Message
                </button>
             </div>
           </div>
@@ -929,7 +955,7 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-neutral-100 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-black tracking-tight">{activeReceipt.title}</h2>
-                  <p className="text-sm text-neutral-500 mt-1">Assign items to participants</p>
+                  <p className="text-sm text-neutral-500 mt-1">Assign items and adjust prices</p>
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
@@ -939,8 +965,8 @@ export default function App() {
 
               <div className="space-y-4">
                 {activeReceipt.items?.map((item) => (
-                  <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
@@ -949,9 +975,21 @@ export default function App() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-neutral-700 whitespace-nowrap shrink-0">{formatIDR(item.price)}</p>
+                      
+                      {/* EDITABLE ITEM PRICE INPUT */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-neutral-400">Rp</span>
+                        <input
+                          type="text"
+                          value={item.price !== "" ? item.price : ""}
+                          onChange={(e) => handleUpdateItemPriceLocally(item.id, e.target.value)}
+                          onBlur={(e) => handleBlurItemPrice(item.id, e.target.value)}
+                          className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-neutral-900 focus:outline-none focus:border-black shadow-2xs"
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+
+                    <div className="flex flex-wrap gap-2 pt-1 border-t border-neutral-200/40">
                       {eventData?.participants?.map((p) => {
                         const isSelected = item.participants?.some(ip => ip.id === p.id);
                         return (
