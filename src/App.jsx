@@ -299,7 +299,7 @@ export default function App() {
     }
   };
 
-  // Editable Item Price Handlers
+  // Editable Item Price Handlers (Silently updates backend without forcing UI revert snapback)
   const handleUpdateItemPriceLocally = (itemId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     setEventData(prevData => {
@@ -332,11 +332,10 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price: newPrice })
       });
-      fetchEventDetails(currentEventId);
+      // Silent background settlement sync only, preserving local UI
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item price:", err);
-      fetchEventDetails(currentEventId);
     }
   };
 
@@ -372,11 +371,9 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: newVal })
       });
-      fetchEventDetails(currentEventId);
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error(`Error updating receipt ${field}:`, err);
-      fetchEventDetails(currentEventId);
     }
   };
 
@@ -431,7 +428,6 @@ export default function App() {
       });
       
       fetchSettlement(currentEventId);
-      fetchEventDetails(currentEventId);
     } catch (err) {
       console.error("Error updating payer amount:", err);
     }
@@ -683,7 +679,7 @@ export default function App() {
             <div className="bg-black text-white p-2 rounded-lg shadow-sm">
               <Receipt className="w-5 h-5"/>
             </div>
-            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed V2</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed</h1>
           </div>
           
           {eventData && currentView === 'summary' && (
@@ -1018,7 +1014,6 @@ export default function App() {
               <div className="space-y-4">
                 {activeReceipt.items?.map((item) => (
                   <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
-                    {/* MOBILE FIXED RIGHT-ALIGNMENT & WRAP LAYOUT */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
