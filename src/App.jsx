@@ -299,26 +299,35 @@ export default function App() {
     }
   };
 
-  // True Receipt Calculation: Uses original receipt's total_amount as the source of truth,
-  // and automatically calculates "Others / Delivery (Lainnya)" if there's a discrepancy.
+  // TRUE LIVE CALCULATION (Heuristic Anchoring)
+  // Auto-detects if tax is inclusive/exclusive based on DB anchor, then sums items live.
   const calculateReceiptTotals = (receipt) => {
+    if (!receipt) return { subtotal: 0, others: 0, total: 0, isInclusive: false };
+
     const items = receipt.items || [];
     const subtotal = items.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
     const t = parseFloat(receipt.tax) || 0;
     const s = parseFloat(receipt.service) || 0;
     const d = Math.abs(parseFloat(receipt.discount) || 0);
-    
-    // The target grand total from the receipt
-    const targetTotal = parseFloat(receipt.total_amount) || subtotal;
+    const o = parseFloat(receipt.others) || 0;
 
-    // Standard sum of subtotal + tax + service - discount (ignoring others temporarily)
-    const baseSum = subtotal + t + s - d;
-    
-    // Discrepancy goes into others/delivery so that total matches targetTotal exactly
-    const calculatedOthers = targetTotal - baseSum;
-    const others = receipt.others !== undefined && receipt.others !== "" ? parseFloat(receipt.others) : calculatedOthers;
+    // Calculate both possible rules
+    const inclusiveTotal = subtotal + s + o - d;
+    const exclusiveTotal = subtotal + t + s + o - d;
 
-    return { subtotal, others: isNaN(others) ? 0 : others, total: targetTotal };
+    // We use the original DB total_amount as the stable anchor to detect the rule type.
+    const targetTotal = parseFloat(receipt.total_amount) || inclusiveTotal;
+
+    // The rule that hits closest to the original DB total wins.
+    const diffInclusive = Math.abs(targetTotal - inclusiveTotal);
+    const diffExclusive = Math.abs(targetTotal - exclusiveTotal);
+    const isInclusive = diffInclusive < diffExclusive;
+
+    // The final Live Total simply applies the winning rule dynamically. 
+    // If you edit an item +1, inclusive/exclusiveTotal both go up by +1 immediately!
+    const liveTotal = isInclusive ? inclusiveTotal : exclusiveTotal;
+
+    return { subtotal, others: o, total: liveTotal, isInclusive };
   };
 
   // Editable Item Price Handlers
@@ -329,9 +338,7 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
-          const updatedReceipt = { ...r, items: updatedItems };
-          const { subtotal, others, total } = calculateReceiptTotals(updatedReceipt);
-          return { ...updatedReceipt, subtotal, others, total_amount: total };
+          return { ...r, items: updatedItems }; // We no longer overwrite total_amount to preserve our anchor!
         }
         return r;
       });
@@ -362,12 +369,7 @@ export default function App() {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
-          const updatedReceipt = { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) };
-          const { subtotal, others, total } = calculateReceiptTotals(updatedReceipt);
-          updatedReceipt.subtotal = subtotal;
-          updatedReceipt.others = others;
-          updatedReceipt.total_amount = total;
-          return updatedReceipt;
+          return { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) }; // Clean, no overrides
         }
         return r;
       });
@@ -538,12 +540,13 @@ export default function App() {
         if (unassigned) { ready = false; break; }
       }
       const totalPaid = r.payers?.reduce((sum, p) => sum + (parseFloat(p.amount_paid) || 0), 0) || 0;
-      if (totalPaid < r.total_amount - 1) { ready = false; break; }
+      if (totalPaid < (calculateReceiptTotals(r).total - 1)) { ready = false; break; }
     }
     return ready;
   })();
 
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
+  const activeTotals = activeReceipt ? calculateReceiptTotals(activeReceipt) : null;
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative">
@@ -1022,7 +1025,7 @@ export default function App() {
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
                   <p className="text-2xl font-semibold text-black tracking-tight whitespace-nowrap shrink-0">
-                    {formatIDR(calculateReceiptTotals(activeReceipt).total)}
+                    {formatIDR(activeTotals?.total)}
                   </p>
                 </div>
               </div>
@@ -1078,13 +1081,15 @@ export default function App() {
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
                     <span className="font-semibold text-neutral-900 whitespace-nowrap shrink-0">
-                      {formatIDR(calculateReceiptTotals(activeReceipt).subtotal)}
+                      {formatIDR(activeTotals?.subtotal)}
                     </span>
                   </div>
 
                   {/* TAX INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
-                    <span className="text-neutral-500 font-medium">Tax (Pajak)</span>
+                    <span className="text-neutral-500 font-medium flex items-center gap-2">
+                      Tax (Pajak) {activeTotals?.isInclusive && <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shadow-xs">Inclusive</span>}
+                    </span>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-neutral-400">Rp</span>
                       <input
@@ -1130,14 +1135,14 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* OTHERS INPUT (Auto-adjusted for discrepancy) */}
+                  {/* OTHERS INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Others / Delivery (Lainnya)</span>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-neutral-400">Rp</span>
                       <input
                         type="text"
-                        value={Math.round(calculateReceiptTotals(activeReceipt).others)}
+                        value={activeReceipt.others ?? ""}
                         onChange={(e) => handleUpdateReceiptFeeLocally('others', e.target.value)}
                         onBlur={(e) => handleBlurReceiptFee('others', e.target.value)}
                         className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
@@ -1149,7 +1154,7 @@ export default function App() {
                   <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold gap-4">
                     <span className="text-black">Total</span>
                     <span className="text-black whitespace-nowrap shrink-0">
-                      {formatIDR(calculateReceiptTotals(activeReceipt).total)}
+                      {formatIDR(activeTotals?.total)}
                     </span>
                   </div>
                 </div>
@@ -1264,7 +1269,8 @@ export default function App() {
                 <div className="space-y-4">
                   {eventData?.receipts?.map((r) => {
                     const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (parseFloat(curr.amount_paid) || 0), 0) || 0;
-                    const isUnderpaid = totalPaidForReceipt < r.total_amount;
+                    const rTotals = calculateReceiptTotals(r);
+                    const isUnderpaid = totalPaidForReceipt < (rTotals.total - 1);
 
                     return (
                       <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
@@ -1281,7 +1287,7 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                            <span className="font-semibold text-black whitespace-nowrap shrink-0">{formatIDR(r.total_amount)}</span>
+                            <span className="font-semibold text-black whitespace-nowrap shrink-0">{formatIDR(rTotals.total)}</span>
                             <button
                               onClick={() => setActiveReceiptId(r.id)}
                               className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
@@ -1303,7 +1309,7 @@ export default function App() {
                             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Who Paid?</p>
                             {isUnderpaid && (
                               <span className="flex items-center gap-1 text-amber-600 text-xs font-medium bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
-                                <AlertCircle className="w-3.5 h-3.5"/> Total paid ({formatIDR(totalPaidForReceipt)}) is less than receipt total ({formatIDR(r.total_amount)})
+                                <AlertCircle className="w-3.5 h-3.5"/> Total paid ({formatIDR(totalPaidForReceipt)}) is less than receipt total ({formatIDR(rTotals.total)})
                               </span>
                             )}
                           </div>
