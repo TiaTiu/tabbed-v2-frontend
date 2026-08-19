@@ -358,14 +358,16 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // NATIVE APP-STYLE SHARE HANDLER
   const handleOpenShareModal = async () => {
     if (isSharing) return;
     setIsSharing(true);
 
-    const summaryElement = document.getElementById('receipt-summary-card');
+    // Grab the dedicated hidden div for the perfect screenshot layout
+    const summaryElement = document.getElementById('share-image-target');
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
-    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan dicek ya!`;
+    
+    // Explicitly add the link inside the message text
+    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan klik link ini untuk rincian lengkapnya:\n\n${url}`;
 
     if (!summaryElement) {
       handleShareLink();
@@ -374,12 +376,10 @@ export default function App() {
     }
 
     try {
-      // html-to-image is much faster, strictly async, and handles CSS natively. 
-      // It keeps the browser's "user click context" alive on iOS.
       const blob = await toBlob(summaryElement, { 
         cacheBust: true, 
         backgroundColor: '#ffffff',
-        pixelRatio: 2 // Crisp resolution
+        pixelRatio: 3 // High resolution to avoid blur
       });
 
       if (!blob) throw new Error("Failed to generate image blob");
@@ -394,22 +394,18 @@ export default function App() {
       if (navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
       } else if (navigator.share) {
-        // Fallback for devices that support text sharing but not files
-        await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
+        await navigator.share({ title: shareData.title, text: baseText });
       } else {
-        // Desktop fallback
         handleShareLink();
         alert("Summary link copied to clipboard!");
       }
     } catch (err) {
       console.error("Image generation error:", err);
-      // Graceful fallback if the user closes the share sheet or an error happens
       if (err.name !== 'AbortError') {
         handleShareLink();
         alert("Summary link copied to clipboard!");
       }
     } finally {
-      // This is crucial: Always reset the loading state regardless of success/fail
       setIsSharing(false); 
     }
   };
@@ -417,7 +413,66 @@ export default function App() {
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
+    <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative">
+      
+      {/* OFF-SCREEN RENDER TARGET FOR CLEANER, SHORTER SHARE IMAGE */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-black text-black tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
+            <p className="text-sm text-neutral-500 font-medium mt-1">Total Spending & Settlements</p>
+          </div>
+
+          <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+              <Users className="w-4 h-4 text-black"/> Total Spending
+            </h3>
+            <div className="space-y-4">
+              {settlement?.participant_breakdown?.map((p, idx) => (
+                <div key={idx} className="flex items-center justify-between pb-4 border-b border-neutral-100 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+                      {p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-bold text-neutral-900">{p.name}</span>
+                  </div>
+                  <span className="font-bold text-black">{formatIDR(p.total_spent)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
+            </h3>
+            <div className="space-y-3">
+              {settlement?.settlements?.length > 0 ? (
+                settlement.settlements.map((s, index) => (
+                  <div key={index} className="bg-white border border-neutral-200 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800 shadow-sm">
+                    <div className="flex items-center gap-2 font-bold">
+                      <span className="text-black">{s.from}</span>
+                      <ArrowRight className="w-4 h-4 text-neutral-400"/>
+                      <span className="text-black">{s.to}</span>
+                    </div>
+                    <span className="font-bold text-black bg-neutral-100 px-3 py-1 rounded-lg">
+                      {formatIDR(s.amount)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-neutral-500 italic font-medium">No transfers required.</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="text-center pt-2">
+            <span className="text-xs font-semibold text-neutral-400">Powered by Tabbed</span>
+          </div>
+        </div>
+      </div>
+
+
       {modalImage && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
