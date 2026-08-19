@@ -362,12 +362,11 @@ export default function App() {
     if (isSharing) return;
     setIsSharing(true);
 
-    // Grab the dedicated hidden div for the perfect screenshot layout
     const summaryElement = document.getElementById('share-image-target');
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     
-    // Explicitly add the link inside the message text
-    const baseText = `Halo, ini detail pembagian tagihan untuk ${eventData?.name || 'acara kita'}. Silakan klik link ini untuk rincian lengkapnya:\n\n${url}`;
+    // Updated to English message
+    const baseText = `Hi! Here is the bill splitting summary for ${eventData?.name || 'our event'}. You can check the complete details here:\n\n${url}`;
 
     if (!summaryElement) {
       handleShareLink();
@@ -379,7 +378,7 @@ export default function App() {
       const blob = await toBlob(summaryElement, { 
         cacheBust: true, 
         backgroundColor: '#ffffff',
-        pixelRatio: 3 // High resolution to avoid blur
+        pixelRatio: 3 
       });
 
       if (!blob) throw new Error("Failed to generate image blob");
@@ -415,7 +414,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative">
       
-      {/* OFF-SCREEN RENDER TARGET FOR CLEANER, SHORTER SHARE IMAGE */}
+      {/* OFF-SCREEN RENDER TARGET WITH UPDATED FOOTER */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
           <div className="text-center mb-6">
@@ -467,11 +466,10 @@ export default function App() {
           </div>
           
           <div className="text-center pt-2">
-            <span className="text-xs font-semibold text-neutral-400">Powered by Tabbed</span>
+            <span className="text-xs font-semibold text-neutral-400">Tabbed by Tiara</span>
           </div>
         </div>
       </div>
-
 
       {modalImage && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
