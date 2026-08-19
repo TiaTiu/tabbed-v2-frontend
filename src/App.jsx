@@ -351,11 +351,36 @@ export default function App() {
     }
   };
 
+  const showCopiedToast = () => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  const fallbackCopyTextToClipboard = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showCopiedToast();
+    } catch (err) {
+      console.error('Fallback: Oops, unable to copy', err);
+    }
+    document.body.removeChild(textArea);
+  };
+
   const handleShareLink = () => {
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(showCopiedToast).catch(() => fallbackCopyTextToClipboard(url));
+    } else {
+      fallbackCopyTextToClipboard(url);
+    }
   };
 
   const handleOpenShareModal = async () => {
@@ -364,8 +389,6 @@ export default function App() {
 
     const summaryElement = document.getElementById('share-image-target');
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
-    
-    // Updated to English message
     const baseText = `Hi! Here is the bill splitting summary for ${eventData?.name || 'our event'}. You can check the complete details here:\n\n${url}`;
 
     if (!summaryElement) {
@@ -396,25 +419,45 @@ export default function App() {
         await navigator.share({ title: shareData.title, text: baseText });
       } else {
         handleShareLink();
-        alert("Summary link copied to clipboard!");
       }
     } catch (err) {
       console.error("Image generation error:", err);
       if (err.name !== 'AbortError') {
         handleShareLink();
-        alert("Summary link copied to clipboard!");
       }
     } finally {
       setIsSharing(false); 
     }
   };
 
+  const isReadyForSummary = (() => {
+    if (!eventData?.receipts || eventData.receipts.length === 0) return false;
+    let ready = true;
+    for (const r of eventData.receipts) {
+      if (r.items && r.items.length > 0) {
+        const unassigned = r.items.some(i => !i.participants || i.participants.length === 0);
+        if (unassigned) { ready = false; break; }
+      }
+      const totalPaid = r.payers?.reduce((sum, p) => sum + (parseFloat(p.amount_paid) || 0), 0) || 0;
+      if (totalPaid < r.total_amount - 1) { ready = false; break; }
+    }
+    return ready;
+  })();
+
   const activeReceipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative">
       
-      {/* OFF-SCREEN RENDER TARGET WITH UPDATED FOOTER */}
+      {/* FLOATING COPIED TOAST */}
+      {copied && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <Check className="w-4 h-4 text-green-400"/>
+          <span className="text-sm font-semibold">Link copied to clipboard!</span>
+        </div>
+      )}
+
+      {/* OFF-SCREEN RENDER TARGET FOR CLEANER, SHORTER SHARE IMAGE */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
           <div className="text-center mb-6">
@@ -466,7 +509,9 @@ export default function App() {
           </div>
           
           <div className="text-center pt-2">
-            <span className="text-xs font-semibold text-neutral-400">Tabbed by Tiara</span>
+            <span className="text-xs font-semibold text-neutral-400">
+              Tabbed by <strong className="text-black font-bold">Tiara</strong>
+            </span>
           </div>
         </div>
       </div>
@@ -1085,30 +1130,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SETTLEMENTS */}
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-black"/> Recommended Settlement Transfers
-                </h3>
-                <div className="space-y-2">
-                  {settlement?.settlements && settlement.settlements.length > 0 ? (
-                    settlement.settlements.map((s, index) => (
-                      <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span className="text-black font-semibold">{s.from}</span>
-                          <ArrowRight className="w-4 h-4 text-neutral-400"/>
-                          <span className="text-black font-semibold">{s.to}</span>
-                        </div>
-                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 shadow-2xs whitespace-nowrap shrink-0">
-                          {formatIDR(s.amount)}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-neutral-400 italic">No transfers required or specify payment amounts for receipts.</p>
-                  )}
+              {/* ALL SET BANNER - Appears when all items assigned and receipts paid */}
+              {isReadyForSummary && (
+                <div className="bg-black border border-neutral-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in">
+                   <div className="text-center sm:text-left">
+                      <h3 className="text-lg font-bold text-white flex items-center justify-center sm:justify-start gap-2">
+                        <Check className="w-5 h-5 text-green-400"/> All Set!
+                      </h3>
+                      <p className="text-sm text-neutral-400 mt-1">All items assigned and bills covered.</p>
+                   </div>
+                   <button
+                     onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                     className="w-full sm:w-auto bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                   >
+                     View Summary <ArrowRight className="w-4 h-4"/>
+                   </button>
                 </div>
-              </div>
+              )}
+
             </div>
           )}
         </div>
