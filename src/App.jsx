@@ -299,24 +299,29 @@ export default function App() {
     }
   };
 
-  // Editable Item Price Handlers (Silently updates backend without forcing UI revert snapback)
+  // Robust Live Calculation Helper for Subtotal & Total
+  const calculateReceiptTotals = (items, tax, service, discount, others) => {
+    const subtotal = (items || []).reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
+    const t = parseFloat(tax) || 0;
+    const s = parseFloat(service) || 0;
+    const d = parseFloat(discount) || 0;
+    const o = parseFloat(others) || 0;
+    const total = subtotal + t + s - d + o;
+    return { subtotal, total };
+  };
+
+  // Editable Item Price Handlers
   const handleUpdateItemPriceLocally = (itemId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     setEventData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
-        const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
-        const newSubtotal = updatedItems.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
-        const tax = parseFloat(r.tax) || 0;
-        const service = parseFloat(r.service) || 0;
-        const discount = parseFloat(r.discount) || 0;
-        const others = parseFloat(r.others) || 0;
-        const newTotal = newSubtotal + tax + service - discount + others;
-
         if (r.id === activeReceiptId) {
-          return { ...r, items: updatedItems, subtotal: newSubtotal, total_amount: newTotal };
+          const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
+          const { subtotal, total } = calculateReceiptTotals(updatedItems, r.tax, r.service, r.discount, r.others);
+          return { ...r, items: updatedItems, subtotal, total_amount: total };
         }
-        return { ...r, items: updatedItems };
+        return r;
       });
       return { ...prevData, receipts: updatedReceipts };
     });
@@ -332,7 +337,6 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price: newPrice })
       });
-      // Silent background settlement sync only, preserving local UI
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item price:", err);
@@ -347,12 +351,15 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedReceipt = { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) };
-          const subtotal = (updatedReceipt.subtotal ?? updatedReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0)) || 0;
-          const tax = parseFloat(field === 'tax' ? cleanedValue : updatedReceipt.tax) || 0;
-          const service = parseFloat(field === 'service' ? cleanedValue : updatedReceipt.service) || 0;
-          const discount = parseFloat(field === 'discount' ? cleanedValue : updatedReceipt.discount) || 0;
-          const others = parseFloat(field === 'others' ? cleanedValue : updatedReceipt.others) || 0;
-          updatedReceipt.total_amount = subtotal + tax + service - discount + others;
+          const { subtotal, total } = calculateReceiptTotals(
+            updatedReceipt.items, 
+            field === 'tax' ? cleanedValue : updatedReceipt.tax, 
+            field === 'service' ? cleanedValue : updatedReceipt.service, 
+            field === 'discount' ? cleanedValue : updatedReceipt.discount, 
+            field === 'others' ? cleanedValue : updatedReceipt.others
+          );
+          updatedReceipt.subtotal = subtotal;
+          updatedReceipt.total_amount = total;
           return updatedReceipt;
         }
         return r;
