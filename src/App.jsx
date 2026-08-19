@@ -348,7 +348,7 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedReceipt = { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) };
-          const subtotal = updatedReceipt.subtotal ?? updatedReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0) || 0;
+          const subtotal = (updatedReceipt.subtotal ?? updatedReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0)) || 0;
           const tax = parseFloat(field === 'tax' ? cleanedValue : updatedReceipt.tax) || 0;
           const service = parseFloat(field === 'service' ? cleanedValue : updatedReceipt.service) || 0;
           const discount = parseFloat(field === 'discount' ? cleanedValue : updatedReceipt.discount) || 0;
@@ -1067,7 +1067,7 @@ export default function App() {
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
                     <span className="font-semibold text-neutral-900 whitespace-nowrap shrink-0">
-                      {formatIDR(activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0))}
+                      {formatIDR((activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0)) || 0)}
                     </span>
                   </div>
 
