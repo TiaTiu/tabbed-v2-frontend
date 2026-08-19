@@ -847,7 +847,7 @@ export default function App() {
                 </form>
               </div>
 
-              {Array.isArray(events) && events.length > 0 && (
+{Array.isArray(events) && events.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Events</h3>
                   <div className="space-y-1.5">
@@ -862,7 +862,7 @@ export default function App() {
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
+                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
                         </button>
                         <button
                           onClick={(e) => handleDeleteEvent(e, ev.id)}
