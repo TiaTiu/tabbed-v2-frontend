@@ -304,10 +304,20 @@ export default function App() {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     setEventData(prevData => {
       if (!prevData) return prevData;
-      const updatedReceipts = prevData.receipts.map(r => ({
-        ...r,
-        items: r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item)
-      }));
+      const updatedReceipts = prevData.receipts.map(r => {
+        const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
+        const newSubtotal = updatedItems.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
+        const tax = parseFloat(r.tax) || 0;
+        const service = parseFloat(r.service) || 0;
+        const discount = parseFloat(r.discount) || 0;
+        const others = parseFloat(r.others) || 0;
+        const newTotal = newSubtotal + tax + service - discount + others;
+
+        if (r.id === activeReceiptId) {
+          return { ...r, items: updatedItems, subtotal: newSubtotal, total_amount: newTotal };
+        }
+        return { ...r, items: updatedItems };
+      });
       return { ...prevData, receipts: updatedReceipts };
     });
   };
@@ -326,6 +336,46 @@ export default function App() {
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item price:", err);
+      fetchEventDetails(currentEventId);
+    }
+  };
+
+  // Editable Tax, Service, Discount, Others Handlers
+  const handleUpdateReceiptFeeLocally = (field, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    setEventData(prevData => {
+      if (!prevData) return prevData;
+      const updatedReceipts = prevData.receipts.map(r => {
+        if (r.id === activeReceiptId) {
+          const updatedReceipt = { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) };
+          const subtotal = updatedReceipt.subtotal ?? updatedReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0) || 0;
+          const tax = parseFloat(field === 'tax' ? cleanedValue : updatedReceipt.tax) || 0;
+          const service = parseFloat(field === 'service' ? cleanedValue : updatedReceipt.service) || 0;
+          const discount = parseFloat(field === 'discount' ? cleanedValue : updatedReceipt.discount) || 0;
+          const others = parseFloat(field === 'others' ? cleanedValue : updatedReceipt.others) || 0;
+          updatedReceipt.total_amount = subtotal + tax + service - discount + others;
+          return updatedReceipt;
+        }
+        return r;
+      });
+      return { ...prevData, receipts: updatedReceipts };
+    });
+  };
+
+  const handleBlurReceiptFee = async (field, rawValue) => {
+    const cleanedValue = rawValue.replace(/[^0-9]/g, '');
+    const newVal = cleanedValue === "" ? 0 : parseFloat(cleanedValue);
+
+    try {
+      await fetch(`${API_URL}/receipts/${activeReceiptId}/${field}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: newVal })
+      });
+      fetchEventDetails(currentEventId);
+      fetchSettlement(currentEventId);
+    } catch (err) {
+      console.error(`Error updating receipt ${field}:`, err);
       fetchEventDetails(currentEventId);
     }
   };
@@ -510,7 +560,7 @@ export default function App() {
               </button>
             </div>
             <div className="p-6 bg-neutral-50 flex flex-col gap-4">
-              <p className="text-sm text-neutral-500 font-medium">Ready to share! You can copy both the image and the message together to paste into WhatsApp Web.</p>
+              <p className="text-sm text-neutral-500 font-medium">Ready to share! Choose whether you'd like to copy the message text or copy the summary image.</p>
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start">
                  <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-100 relative shadow-sm">
                    <img src={desktopShareImage} className="w-full h-auto object-cover object-top absolute top-0" alt="Preview snippet" />
@@ -520,15 +570,8 @@ export default function App() {
                  </div>
               </div>
             </div>
-            <div className="p-4 sm:p-6 bg-white border-t border-neutral-200 flex gap-3">
+            <div className="p-4 sm:p-6 bg-white border-t border-neutral-200 flex flex-col sm:flex-row gap-3">
                <button onClick={async () => {
-                 // Copy text message first
-                 if (navigator.clipboard && window.isSecureContext) {
-                   await navigator.clipboard.writeText(desktopShareText);
-                 } else {
-                   fallbackCopyTextToClipboard(desktopShareText);
-                 }
-                 // Attempt to copy image as well
                  try {
                    const response = await fetch(desktopShareImage);
                    const blob = await response.blob();
@@ -537,10 +580,19 @@ export default function App() {
                    ]);
                    showCopiedToast();
                  } catch (err) {
-                   showCopiedToast(); // Text copied successfully at least
+                   alert("Direct image copying failed. Please right-click the image preview to copy.");
                  }
-               }} className="w-full bg-black hover:bg-neutral-800 text-white font-semibold py-3.5 rounded-2xl transition-all text-sm flex justify-center items-center gap-2 shadow-sm">
-                 <Copy className="w-4 h-4" /> Copy Image & Message
+               }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-black border border-neutral-200 font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
+                 <Copy className="w-4 h-4" /> Copy Image
+               </button>
+               <button onClick={() => {
+                 if (navigator.clipboard && window.isSecureContext) {
+                   navigator.clipboard.writeText(desktopShareText).then(showCopiedToast).catch(() => fallbackCopyTextToClipboard(desktopShareText));
+                 } else {
+                   fallbackCopyTextToClipboard(desktopShareText);
+                 }
+               }} className="flex-1 bg-black hover:bg-neutral-800 text-white font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
+                 <FileText className="w-4 h-4" /> Copy Message
                </button>
             </div>
           </div>
@@ -955,7 +1007,7 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-neutral-100 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-black tracking-tight">{activeReceipt.title}</h2>
-                  <p className="text-sm text-neutral-500 mt-1">Assign items and adjust prices</p>
+                  <p className="text-sm text-neutral-500 mt-1">Assign items and adjust amounts</p>
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
@@ -966,6 +1018,7 @@ export default function App() {
               <div className="space-y-4">
                 {activeReceipt.items?.map((item) => (
                   <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
+                    {/* MOBILE FIXED RIGHT-ALIGNMENT & WRAP LAYOUT */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 flex items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
@@ -976,8 +1029,7 @@ export default function App() {
                         )}
                       </div>
                       
-                      {/* EDITABLE ITEM PRICE INPUT */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-end gap-1 w-full sm:w-auto">
                         <span className="text-xs text-neutral-400">Rp</span>
                         <input
                           type="text"
@@ -1010,38 +1062,79 @@ export default function App() {
                   </div>
                 ))}
 
-                {/* RECEIPT FINANCIAL BREAKDOWN SUMMARY */}
-                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-2.5 mt-6">
-                  <div className="flex justify-between text-sm gap-4">
-                    <span className="text-neutral-500">Subtotal</span>
-                    <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">
-                      {formatIDR(activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (curr.price || 0), 0))}
+                {/* EDITABLE RECEIPT FINANCIAL BREAKDOWN SUMMARY */}
+                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3 mt-6">
+                  <div className="flex items-center justify-between text-sm gap-4">
+                    <span className="text-neutral-500 font-medium">Subtotal</span>
+                    <span className="font-semibold text-neutral-900 whitespace-nowrap shrink-0">
+                      {formatIDR(activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0))}
                     </span>
                   </div>
-                  {activeReceipt.tax != null && activeReceipt.tax !== 0 && (
-                    <div className="flex justify-between text-sm gap-4">
-                      <span className="text-neutral-500">Tax (Pajak)</span>
-                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.tax)}</span>
+
+                  {/* TAX INPUT */}
+                  <div className="flex items-center justify-between text-sm gap-4">
+                    <span className="text-neutral-500 font-medium">Tax (Pajak)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-neutral-400">Rp</span>
+                      <input
+                        type="text"
+                        value={activeReceipt.tax ?? ""}
+                        onChange={(e) => handleUpdateReceiptFeeLocally('tax', e.target.value)}
+                        onBlur={(e) => handleBlurReceiptFee('tax', e.target.value)}
+                        className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
+                        placeholder="0"
+                      />
                     </div>
-                  )}
-                  {activeReceipt.service != null && activeReceipt.service !== 0 && (
-                    <div className="flex justify-between text-sm gap-4">
-                      <span className="text-neutral-500">Service (Servis)</span>
-                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.service)}</span>
+                  </div>
+
+                  {/* SERVICE INPUT */}
+                  <div className="flex items-center justify-between text-sm gap-4">
+                    <span className="text-neutral-500 font-medium">Service (Servis)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-neutral-400">Rp</span>
+                      <input
+                        type="text"
+                        value={activeReceipt.service ?? ""}
+                        onChange={(e) => handleUpdateReceiptFeeLocally('service', e.target.value)}
+                        onBlur={(e) => handleBlurReceiptFee('service', e.target.value)}
+                        className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
+                        placeholder="0"
+                      />
                     </div>
-                  )}
-                  {activeReceipt.discount != null && activeReceipt.discount !== 0 && (
-                    <div className="flex justify-between text-sm gap-4">
-                      <span className="text-neutral-500">Discount (Diskon)</span>
-                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.discount)}</span>
+                  </div>
+
+                  {/* DISCOUNT INPUT */}
+                  <div className="flex items-center justify-between text-sm gap-4">
+                    <span className="text-neutral-500 font-medium">Discount (Diskon)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-neutral-400">Rp</span>
+                      <input
+                        type="text"
+                        value={activeReceipt.discount ?? ""}
+                        onChange={(e) => handleUpdateReceiptFeeLocally('discount', e.target.value)}
+                        onBlur={(e) => handleBlurReceiptFee('discount', e.target.value)}
+                        className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
+                        placeholder="0"
+                      />
                     </div>
-                  )}
-                  {activeReceipt.others != null && activeReceipt.others !== 0 && (
-                    <div className="flex justify-between text-sm gap-4">
-                      <span className="text-neutral-500">Others / Delivery (Lainnya)</span>
-                      <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0">{formatIDR(activeReceipt.others)}</span>
+                  </div>
+
+                  {/* OTHERS INPUT */}
+                  <div className="flex items-center justify-between text-sm gap-4">
+                    <span className="text-neutral-500 font-medium">Others / Delivery (Lainnya)</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-neutral-400">Rp</span>
+                      <input
+                        type="text"
+                        value={activeReceipt.others ?? ""}
+                        onChange={(e) => handleUpdateReceiptFeeLocally('others', e.target.value)}
+                        onBlur={(e) => handleBlurReceiptFee('others', e.target.value)}
+                        className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
+                        placeholder="0"
+                      />
                     </div>
-                  )}
+                  </div>
+
                   <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold gap-4">
                     <span className="text-black">Total</span>
                     <span className="text-black whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</span>
