@@ -299,14 +299,14 @@ export default function App() {
     }
   };
 
-  // Robust Live Calculation Helper for Subtotal & Total
+  // Robust Live Calculation Helper (Ensures Subtotal and Total match dynamically)
   const calculateReceiptTotals = (items, tax, service, discount, others) => {
     const subtotal = (items || []).reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
     const t = parseFloat(tax) || 0;
     const s = parseFloat(service) || 0;
     const d = parseFloat(discount) || 0;
     const o = parseFloat(others) || 0;
-    const total = subtotal + t + s - d + o;
+    const total = subtotal + t + s - Math.abs(d) + o;
     return { subtotal, total };
   };
 
@@ -1014,7 +1014,9 @@ export default function App() {
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
-                  <p className="text-2xl font-semibold text-black tracking-tight whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</p>
+                  <p className="text-2xl font-semibold text-black tracking-tight whitespace-nowrap shrink-0">
+                    {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).total)}
+                  </p>
                 </div>
               </div>
 
@@ -1069,7 +1071,7 @@ export default function App() {
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
                     <span className="font-semibold text-neutral-900 whitespace-nowrap shrink-0">
-                      {formatIDR((activeReceipt.subtotal ?? activeReceipt.items?.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0)) || 0)}
+                      {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).subtotal)}
                     </span>
                   </div>
 
@@ -1139,7 +1141,9 @@ export default function App() {
 
                   <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold gap-4">
                     <span className="text-black">Total</span>
-                    <span className="text-black whitespace-nowrap shrink-0">{formatIDR(activeReceipt.total_amount)}</span>
+                    <span className="text-black whitespace-nowrap shrink-0">
+                      {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).total)}
+                    </span>
                   </div>
                 </div>
 
