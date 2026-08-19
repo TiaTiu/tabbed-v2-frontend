@@ -299,8 +299,6 @@ export default function App() {
     }
   };
 
-  // TRUE LIVE CALCULATION (Heuristic Anchoring)
-  // Auto-detects if tax is inclusive/exclusive based on DB anchor, then sums items live.
   const calculateReceiptTotals = (receipt) => {
     if (!receipt) return { subtotal: 0, others: 0, total: 0, isInclusive: false };
 
@@ -311,26 +309,20 @@ export default function App() {
     const d = Math.abs(parseFloat(receipt.discount) || 0);
     const o = parseFloat(receipt.others) || 0;
 
-    // Calculate both possible rules
     const inclusiveTotal = subtotal + s + o - d;
     const exclusiveTotal = subtotal + t + s + o - d;
 
-    // We use the original DB total_amount as the stable anchor to detect the rule type.
     const targetTotal = parseFloat(receipt.total_amount) || inclusiveTotal;
 
-    // The rule that hits closest to the original DB total wins.
     const diffInclusive = Math.abs(targetTotal - inclusiveTotal);
     const diffExclusive = Math.abs(targetTotal - exclusiveTotal);
     const isInclusive = diffInclusive < diffExclusive;
 
-    // The final Live Total simply applies the winning rule dynamically. 
-    // If you edit an item +1, inclusive/exclusiveTotal both go up by +1 immediately!
     const liveTotal = isInclusive ? inclusiveTotal : exclusiveTotal;
 
     return { subtotal, others: o, total: liveTotal, isInclusive };
   };
 
-  // Editable Item Price Handlers
   const handleUpdateItemPriceLocally = (itemId, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     setEventData(prevData => {
@@ -338,7 +330,7 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
-          return { ...r, items: updatedItems }; // We no longer overwrite total_amount to preserve our anchor!
+          return { ...r, items: updatedItems }; 
         }
         return r;
       });
@@ -362,14 +354,13 @@ export default function App() {
     }
   };
 
-  // Editable Tax, Service, Discount, Others Handlers
   const handleUpdateReceiptFeeLocally = (field, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
     setEventData(prevData => {
       if (!prevData) return prevData;
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
-          return { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) }; // Clean, no overrides
+          return { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) }; 
         }
         return r;
       });
@@ -612,7 +603,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET FOR CLEANER, SHORTER SHARE IMAGE */}
+      {/* OFF-SCREEN RENDER TARGET */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
           <div className="text-center mb-6">
@@ -862,7 +853,7 @@ export default function App() {
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
+                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
                         </button>
                         <button
                           onClick={(e) => handleDeleteEvent(e, ev.id)}
@@ -1076,7 +1067,7 @@ export default function App() {
                   </div>
                 ))}
 
-                {/* EDITABLE RECEIPT FINANCIAL BREAKDOWN SUMMARY */}
+                {/* EDITABLE FINANCIAL BREAKDOWN */}
                 <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3 mt-6">
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
@@ -1085,7 +1076,6 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* TAX INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium flex items-center gap-2">
                       Tax (Pajak) {activeTotals?.isInclusive && <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shadow-xs">Inclusive</span>}
@@ -1103,7 +1093,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* SERVICE INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Service (Servis)</span>
                     <div className="flex items-center gap-1">
@@ -1119,7 +1108,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* DISCOUNT INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Discount (Diskon)</span>
                     <div className="flex items-center gap-1">
@@ -1135,7 +1123,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* OTHERS INPUT */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Others / Delivery (Lainnya)</span>
                     <div className="flex items-center gap-1">
@@ -1159,7 +1146,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BOTTOM BACK TO DASHBOARD BUTTON */}
                 <button
                   onClick={() => setActiveReceiptId(null)}
                   className="w-full mt-6 bg-black hover:bg-neutral-800 text-white font-medium py-3 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2"
@@ -1256,7 +1242,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
               </div>
 
               {/* SCANNED RECEIPTS LIST */}
