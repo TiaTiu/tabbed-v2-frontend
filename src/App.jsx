@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle } from 'lucide-react';
+import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
@@ -357,7 +358,7 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // SVG ForeignObject Native Image Share Handler
+  // NATIVE APP-STYLE SHARE HANDLER
   const handleOpenShareModal = async () => {
     if (isSharing) return;
     setIsSharing(true);
@@ -373,73 +374,43 @@ export default function App() {
     }
 
     try {
-      const htmlString = summaryElement.outerHTML;
-      const width = summaryElement.offsetWidth || 600;
-      const height = summaryElement.offsetHeight || 800;
+      // html-to-image is much faster, strictly async, and handles CSS natively. 
+      // It keeps the browser's "user click context" alive on iOS.
+      const blob = await toBlob(summaryElement, { 
+        cacheBust: true, 
+        backgroundColor: '#ffffff',
+        pixelRatio: 2 // Crisp resolution
+      });
 
-      const svgString = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: sans-serif; background: white; padding: 16px;">
-              ${htmlString}
-            </div>
-          </foreignObject>
-        </svg>
-      `;
+      if (!blob) throw new Error("Failed to generate image blob");
 
-      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const URL = window.URL || window.webkitURL || window;
-      const blobURL = URL.createObjectURL(blob);
-
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = width * 2;
-        canvas.height = height * 2;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(2, 2);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(blobURL);
-
-        canvas.toBlob(async (pngBlob) => {
-          if (!pngBlob) {
-            handleShareLink();
-            setIsSharing(false);
-            return;
-          }
-
-          const file = new File([pngBlob], 'bill-summary.png', { type: 'image/png' });
-          const shareData = {
-            title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
-            text: baseText,
-            files: [file]
-          };
-
-          if (navigator.canShare && navigator.canShare(shareData)) {
-            try {
-              await navigator.share(shareData);
-            } catch (err) {
-              if (err.name !== 'AbortError') handleShareLink();
-            }
-          } else if (navigator.share) {
-            await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
-          } else {
-            handleShareLink();
-          }
-          setIsSharing(false);
-        }, 'image/png');
+      const file = new File([blob], 'bill-summary.png', { type: 'image/png' });
+      const shareData = {
+        title: eventData?.name ? `Bill Summary - ${eventData.name}` : 'Bill Summary',
+        text: baseText,
+        files: [file]
       };
 
-      img.onerror = () => {
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else if (navigator.share) {
+        // Fallback for devices that support text sharing but not files
+        await navigator.share({ title: shareData.title, text: `${baseText}\n\n${url}` });
+      } else {
+        // Desktop fallback
         handleShareLink();
-        setIsSharing(false);
-      };
-
-      img.src = blobURL;
+        alert("Summary link copied to clipboard!");
+      }
     } catch (err) {
       console.error("Image generation error:", err);
-      handleShareLink();
-      setIsSharing(false);
+      // Graceful fallback if the user closes the share sheet or an error happens
+      if (err.name !== 'AbortError') {
+        handleShareLink();
+        alert("Summary link copied to clipboard!");
+      }
+    } finally {
+      // This is crucial: Always reset the loading state regardless of success/fail
+      setIsSharing(false); 
     }
   };
 
