@@ -22,6 +22,11 @@ export default function App() {
   const [modalImage, setModalImage] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
 
+  // Desktop Share Modal States
+  const [showDesktopShareModal, setShowDesktopShareModal] = useState(false);
+  const [desktopShareImage, setDesktopShareImage] = useState(null);
+  const [desktopShareText, setDesktopShareText] = useState("");
+
   const formatIDR = (amount) => {
     if (amount == null || isNaN(amount)) return "Rp 0";
     const rounded = Math.round(amount);
@@ -391,10 +396,9 @@ export default function App() {
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     const baseText = `Hi! Here is the bill splitting summary for ${eventData?.name || 'our event'}. You can check the complete details here:\n\n${url}`;
 
-    // Detect if the user is on a mobile device. Desktop browsers often fail or throw "AbortError" on navigator.share for files.
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    if (!summaryElement || !isMobile) {
+    if (!summaryElement) {
       handleShareLink();
       setIsSharing(false);
       return;
@@ -416,17 +420,20 @@ export default function App() {
         files: [file]
       };
 
-      if (navigator.canShare && navigator.canShare(shareData)) {
+      if (isMobile && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
-      } else if (navigator.share) {
+      } else if (isMobile && navigator.share) {
         await navigator.share({ title: shareData.title, text: baseText });
       } else {
-        handleShareLink();
+        // Desktop fallback: Open beautiful preview modal
+        const objectUrl = URL.createObjectURL(blob);
+        setDesktopShareImage(objectUrl);
+        setDesktopShareText(baseText);
+        setShowDesktopShareModal(true);
       }
     } catch (err) {
       console.error("Image generation/share error:", err);
-      // Fallback to copying link on ANY error (including AbortError on mobile)
-      handleShareLink();
+      handleShareLink(); // Fallback to raw copy on failure
     } finally {
       setIsSharing(false); 
     }
@@ -455,7 +462,62 @@ export default function App() {
       {copied && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <Check className="w-4 h-4 text-green-400"/>
-          <span className="text-sm font-semibold">Link copied to clipboard!</span>
+          <span className="text-sm font-semibold">Copied to clipboard!</span>
+        </div>
+      )}
+
+      {/* DESKTOP SHARE MODAL */}
+      {showDesktopShareModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900">Share Summary</h3>
+              <button
+                onClick={() => setShowDesktopShareModal(false)}
+                className="bg-neutral-100 hover:bg-neutral-200 p-2 rounded-full text-neutral-700 transition-colors"
+              >
+                <X className="w-4 h-4"/>
+              </button>
+            </div>
+            <div className="p-6 bg-neutral-50 flex flex-col gap-4">
+              <p className="text-sm text-neutral-500 font-medium">Ready to share! You can copy the image or the text below to paste into WhatsApp Web.</p>
+              <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start">
+                 {/* image snippet preview */}
+                 <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-100 relative shadow-sm">
+                   <img src={desktopShareImage} className="w-full h-auto object-cover object-top absolute top-0" alt="Preview snippet" />
+                 </div>
+                 {/* text snippet preview */}
+                 <div className="text-sm text-neutral-700 whitespace-pre-wrap flex-1 bg-green-50/30 p-3 rounded-xl border border-green-100 font-medium">
+                   {desktopShareText}
+                 </div>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 bg-white border-t border-neutral-200 flex flex-col sm:flex-row gap-3">
+               <button onClick={async () => {
+                 try {
+                   const response = await fetch(desktopShareImage);
+                   const blob = await response.blob();
+                   await navigator.clipboard.write([
+                      new window.ClipboardItem({ 'image/png': blob })
+                   ]);
+                   showCopiedToast();
+                 } catch (err) {
+                   alert("Direct image copying is not supported in this browser. Please right-click the image above to copy it.");
+                 }
+               }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-black font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
+                 <Share2 className="w-4 h-4" /> Copy Image
+               </button>
+               <button onClick={() => {
+                 if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(desktopShareText).then(showCopiedToast).catch(() => fallbackCopyTextToClipboard(desktopShareText));
+                 } else {
+                    fallbackCopyTextToClipboard(desktopShareText);
+                 }
+               }} className="flex-1 bg-black hover:bg-neutral-800 text-white font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
+                 <FileText className="w-4 h-4" /> Copy Message
+               </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -512,7 +574,7 @@ export default function App() {
           
           <div className="text-center pt-4 pb-2">
             <span className="text-sm font-medium text-neutral-400">
-              Tabbed by <strong className="text-black italic text-2xl ml-1.5" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>Tiara</strong>
+              Tabbed by <strong className="text-black font-semibold tracking-tight text-xl ml-1">Tiara</strong>
             </span>
           </div>
         </div>
@@ -959,27 +1021,6 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6">
-              
-              {/* ALL SET AESTHETIC BANNER */}
-              {isReadyForSummary && (
-                <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col sm:flex-row items-center justify-between gap-6 transition-all animate-in fade-in zoom-in-95">
-                  <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-center shrink-0">
-                      <Check className="w-6 h-6 text-neutral-800"/>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-neutral-900 tracking-tight">Everything is balanced</h3>
-                      <p className="text-sm text-neutral-500 font-medium mt-1">All items are assigned and bills are fully covered.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="w-full sm:w-auto bg-black hover:bg-neutral-800 text-white px-8 py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md"
-                  >
-                    View Summary <ArrowRight className="w-4 h-4"/>
-                  </button>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
@@ -1153,6 +1194,27 @@ export default function App() {
                   )}
                 </div>
               </div>
+
+              {/* ALL SET AESTHETIC BANNER */}
+              {isReadyForSummary && (
+                <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col sm:flex-row items-center justify-between gap-6 transition-all animate-in fade-in zoom-in-95">
+                  <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-5">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-center shrink-0">
+                      <Check className="w-6 h-6 text-neutral-800"/>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-neutral-900 tracking-tight">All Set!</h3>
+                      <p className="text-sm text-neutral-500 font-medium mt-1">All items are assigned and bills are fully covered.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="w-full sm:w-auto bg-black hover:bg-neutral-800 text-white px-8 py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md"
+                  >
+                    View Summary <ArrowRight className="w-4 h-4"/>
+                  </button>
+                </div>
+              )}
 
             </div>
           )}
