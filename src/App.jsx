@@ -299,33 +299,26 @@ export default function App() {
     }
   };
 
-  // Smart Automatic Tax Detection Calculation:
-  // Checks if Subtotal + Tax + Service + Others - Discount equals standard exclusive sum, 
-  // otherwise treats Tax as inclusive if Subtotal + Service + Others - Discount already matches or is closer.
-  const calculateReceiptTotals = (items, tax, service, discount, others) => {
-    const subtotal = (items || []).reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
-    const t = parseFloat(tax) || 0;
-    const s = parseFloat(service) || 0;
-    const d = Math.abs(parseFloat(discount) || 0);
-    const o = parseFloat(others) || 0;
-
-    // Exclusive calculation (Tax added)
-    const totalExclusive = subtotal + t + s + o - d;
-    // Inclusive calculation (Tax already in subtotal)
-    const totalInclusive = subtotal + s + o - d;
-
-    // If adding tax makes it wildly different from subtotal while inclusive matches standard restaurant patterns, 
-    // we auto-detect whether tax should be added based on whether t matches exclusive vs inclusive context.
-    // For Grab receipts, subtotal already contains tax, so inclusive is correct. For dine-in receipts, exclusive is correct.
-    // We can auto-detect: if subtotal + service + others - discount is close to typical totals or if tax is already embedded.
-    // Specifically for Grab/GoFood style where Subtotal is large and includes tax:
-    const isGrabStyle = Math.abs(totalInclusive - (subtotal + t + s + o - d)) > t; // heuristic or check receipt title / structure
+  // True Receipt Calculation: Uses original receipt's total_amount as the source of truth,
+  // and automatically calculates "Others / Delivery (Lainnya)" if there's a discrepancy.
+  const calculateReceiptTotals = (receipt) => {
+    const items = receipt.items || [];
+    const subtotal = items.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
+    const t = parseFloat(receipt.tax) || 0;
+    const s = parseFloat(receipt.service) || 0;
+    const d = Math.abs(parseFloat(receipt.discount) || 0);
     
-    // Let's use a robust check: if title or items suggest delivery (like GrabFood / GoFood), treat tax as inclusive.
-    // Or simpler: if tax inclusive total matches expected or if tax is part of subtotal.
-    const total = isGrabStyle ? totalInclusive : totalExclusive;
+    // The target grand total from the receipt
+    const targetTotal = parseFloat(receipt.total_amount) || subtotal;
 
-    return { subtotal, total };
+    // Standard sum of subtotal + tax + service - discount (ignoring others temporarily)
+    const baseSum = subtotal + t + s - d;
+    
+    // Discrepancy goes into others/delivery so that total matches targetTotal exactly
+    const calculatedOthers = targetTotal - baseSum;
+    const others = receipt.others !== undefined && receipt.others !== "" ? parseFloat(receipt.others) : calculatedOthers;
+
+    return { subtotal, others: isNaN(others) ? 0 : others, total: targetTotal };
   };
 
   // Editable Item Price Handlers
@@ -336,8 +329,9 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedItems = r.items.map(item => item.id === itemId ? { ...item, price: cleanedValue === "" ? "" : parseFloat(cleanedValue) } : item);
-          const { subtotal, total } = calculateReceiptTotals(updatedItems, r.tax, r.service, r.discount, r.others);
-          return { ...r, items: updatedItems, subtotal, total_amount: total };
+          const updatedReceipt = { ...r, items: updatedItems };
+          const { subtotal, others, total } = calculateReceiptTotals(updatedReceipt);
+          return { ...updatedReceipt, subtotal, others, total_amount: total };
         }
         return r;
       });
@@ -369,14 +363,9 @@ export default function App() {
       const updatedReceipts = prevData.receipts.map(r => {
         if (r.id === activeReceiptId) {
           const updatedReceipt = { ...r, [field]: cleanedValue === "" ? "" : parseFloat(cleanedValue) };
-          const { subtotal, total } = calculateReceiptTotals(
-            updatedReceipt.items, 
-            field === 'tax' ? cleanedValue : updatedReceipt.tax, 
-            field === 'service' ? cleanedValue : updatedReceipt.service, 
-            field === 'discount' ? cleanedValue : updatedReceipt.discount, 
-            field === 'others' ? cleanedValue : updatedReceipt.others
-          );
+          const { subtotal, others, total } = calculateReceiptTotals(updatedReceipt);
           updatedReceipt.subtotal = subtotal;
+          updatedReceipt.others = others;
           updatedReceipt.total_amount = total;
           return updatedReceipt;
         }
@@ -1033,7 +1022,7 @@ export default function App() {
                 <div className="text-left sm:text-right">
                   <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Total</p>
                   <p className="text-2xl font-semibold text-black tracking-tight whitespace-nowrap shrink-0">
-                    {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).total)}
+                    {formatIDR(calculateReceiptTotals(activeReceipt).total)}
                   </p>
                 </div>
               </div>
@@ -1089,7 +1078,7 @@ export default function App() {
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
                     <span className="font-semibold text-neutral-900 whitespace-nowrap shrink-0">
-                      {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).subtotal)}
+                      {formatIDR(calculateReceiptTotals(activeReceipt).subtotal)}
                     </span>
                   </div>
 
@@ -1141,14 +1130,14 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* OTHERS INPUT */}
+                  {/* OTHERS INPUT (Auto-adjusted for discrepancy) */}
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Others / Delivery (Lainnya)</span>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-neutral-400">Rp</span>
                       <input
                         type="text"
-                        value={activeReceipt.others ?? ""}
+                        value={Math.round(calculateReceiptTotals(activeReceipt).others)}
                         onChange={(e) => handleUpdateReceiptFeeLocally('others', e.target.value)}
                         onBlur={(e) => handleBlurReceiptFee('others', e.target.value)}
                         className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
@@ -1160,7 +1149,7 @@ export default function App() {
                   <div className="pt-3 border-t border-neutral-200 flex justify-between text-base font-bold gap-4">
                     <span className="text-black">Total</span>
                     <span className="text-black whitespace-nowrap shrink-0">
-                      {formatIDR(calculateReceiptTotals(activeReceipt.items, activeReceipt.tax, activeReceipt.service, activeReceipt.discount, activeReceipt.others).total)}
+                      {formatIDR(calculateReceiptTotals(activeReceipt).total)}
                     </span>
                   </div>
                 </div>
