@@ -299,14 +299,14 @@ export default function App() {
     }
   };
 
-  // Robust Live Calculation Helper (Ensures Subtotal and Total match dynamically)
+  // Precise Receipt Calculation: Subtotal + Tax + Service + Others - Discount
   const calculateReceiptTotals = (items, tax, service, discount, others) => {
     const subtotal = (items || []).reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
     const t = parseFloat(tax) || 0;
     const s = parseFloat(service) || 0;
-    const d = parseFloat(discount) || 0;
+    const d = Math.abs(parseFloat(discount) || 0);
     const o = parseFloat(others) || 0;
-    const total = subtotal + t + s - Math.abs(d) + o;
+    const total = subtotal + t + s + o - d;
     return { subtotal, total };
   };
 
@@ -1114,7 +1114,7 @@ export default function App() {
                       <span className="text-xs text-neutral-400">Rp</span>
                       <input
                         type="text"
-                        value={activeReceipt.discount ?? ""}
+                        value={activeReceipt.discount !== undefined ? (activeReceipt.discount < 0 ? activeReceipt.discount : -Math.abs(activeReceipt.discount)) : ""}
                         onChange={(e) => handleUpdateReceiptFeeLocally('discount', e.target.value)}
                         onBlur={(e) => handleBlurReceiptFee('discount', e.target.value)}
                         className="w-32 text-right bg-white border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-900 focus:outline-none focus:border-black"
