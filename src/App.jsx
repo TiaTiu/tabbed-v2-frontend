@@ -391,7 +391,10 @@ export default function App() {
     const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
     const baseText = `Hi! Here is the bill splitting summary for ${eventData?.name || 'our event'}. You can check the complete details here:\n\n${url}`;
 
-    if (!summaryElement) {
+    // Detect if the user is on a mobile device. Desktop browsers often fail or throw "AbortError" on navigator.share for files.
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (!summaryElement || !isMobile) {
       handleShareLink();
       setIsSharing(false);
       return;
@@ -421,10 +424,9 @@ export default function App() {
         handleShareLink();
       }
     } catch (err) {
-      console.error("Image generation error:", err);
-      if (err.name !== 'AbortError') {
-        handleShareLink();
-      }
+      console.error("Image generation/share error:", err);
+      // Fallback to copying link on ANY error (including AbortError on mobile)
+      handleShareLink();
     } finally {
       setIsSharing(false); 
     }
@@ -508,9 +510,9 @@ export default function App() {
             </div>
           </div>
           
-          <div className="text-center pt-2">
-            <span className="text-xs font-semibold text-neutral-400">
-              Tabbed by <strong className="text-black font-bold">Tiara</strong>
+          <div className="text-center pt-4 pb-2">
+            <span className="text-sm font-medium text-neutral-400">
+              Tabbed by <strong className="text-black italic text-2xl ml-1.5" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>Tiara</strong>
             </span>
           </div>
         </div>
@@ -957,6 +959,28 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6">
+              
+              {/* ALL SET AESTHETIC BANNER */}
+              {isReadyForSummary && (
+                <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col sm:flex-row items-center justify-between gap-6 transition-all animate-in fade-in zoom-in-95">
+                  <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-5">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-center shrink-0">
+                      <Check className="w-6 h-6 text-neutral-800"/>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-neutral-900 tracking-tight">Everything is balanced</h3>
+                      <p className="text-sm text-neutral-500 font-medium mt-1">All items are assigned and bills are fully covered.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="w-full sm:w-auto bg-black hover:bg-neutral-800 text-white px-8 py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md"
+                  >
+                    View Summary <ArrowRight className="w-4 h-4"/>
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
                 {/* RECEIPTS CARD */}
@@ -1129,24 +1153,6 @@ export default function App() {
                   )}
                 </div>
               </div>
-
-              {/* ALL SET BANNER - Appears when all items assigned and receipts paid */}
-              {isReadyForSummary && (
-                <div className="bg-black border border-neutral-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in">
-                   <div className="text-center sm:text-left">
-                      <h3 className="text-lg font-bold text-white flex items-center justify-center sm:justify-start gap-2">
-                        <Check className="w-5 h-5 text-green-400"/> All Set!
-                      </h3>
-                      <p className="text-sm text-neutral-400 mt-1">All items assigned and bills covered.</p>
-                   </div>
-                   <button
-                     onClick={() => { setCurrentView('summary'); setActiveReceiptId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                     className="w-full sm:w-auto bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
-                   >
-                     View Summary <ArrowRight className="w-4 h-4"/>
-                   </button>
-                </div>
-              )}
 
             </div>
           )}
