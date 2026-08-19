@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
+const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
 
 export default function App() {
   const [events, setEvents] = useState([]);
@@ -540,7 +540,7 @@ export default function App() {
         if (unassigned) { ready = false; break; }
       }
       const totalPaid = r.payers?.reduce((sum, p) => sum + (parseFloat(p.amount_paid) || 0), 0) || 0;
-      if (totalPaid < (calculateReceiptTotals(r).total - 1)) { ready = false; break; }
+      if (totalPaid < (calculateReceiptTotals(r).total - 0.1)) { ready = false; break; }
     }
     return ready;
   })();
@@ -596,7 +596,7 @@ export default function App() {
                    alert("Direct image copying failed. Please right-click the image preview to copy.");
                  }
                }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-black border border-neutral-200 font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
-                 <Copy className="w-4 h-4" /> Copy Image
+                 <Copy className="w-4 h-4"/> Copy Image
                </button>
                <button onClick={() => {
                  if (navigator.clipboard && window.isSecureContext) {
@@ -605,7 +605,7 @@ export default function App() {
                    fallbackCopyTextToClipboard(desktopShareText);
                  }
                }} className="flex-1 bg-black hover:bg-neutral-800 text-white font-semibold py-3 rounded-xl transition-all text-sm flex justify-center items-center gap-2">
-                 <FileText className="w-4 h-4" /> Copy Message
+                 <FileText className="w-4 h-4"/> Copy Message
                </button>
             </div>
           </div>
@@ -862,7 +862,7 @@ export default function App() {
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
+                          <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
                         </button>
                         <button
                           onClick={(e) => handleDeleteEvent(e, ev.id)}
@@ -1270,7 +1270,7 @@ export default function App() {
                   {eventData?.receipts?.map((r) => {
                     const totalPaidForReceipt = r.payers?.reduce((acc, curr) => acc + (parseFloat(curr.amount_paid) || 0), 0) || 0;
                     const rTotals = calculateReceiptTotals(r);
-                    const isUnderpaid = totalPaidForReceipt < (rTotals.total - 1);
+                    const isUnderpaid = totalPaidForReceipt < (rTotals.total - 0.1);
 
                     return (
                       <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
