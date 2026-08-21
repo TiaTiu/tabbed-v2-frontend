@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
+const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
 
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
@@ -21,7 +21,6 @@ export default function App() {
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
 
-  // Synchronous assignments map, network debounce timers, and AbortControllers
   const assignmentsRef = useRef({});
   const debounceTimers = useRef({});
   const abortControllers = useRef({});
@@ -336,7 +335,7 @@ export default function App() {
           fetchEventDetails(currentEventId);
         }
       }
-    }, 350); 
+    }, 500); 
   };
 
   const calculateReceiptTotals = (receipt) => {
@@ -582,7 +581,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative">
       
-      {/* FLOATING COPIED TOAST */}
       {copied && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white px-5 py-3 rounded-full shadow-2xl z-50 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <Check className="w-4 h-4 text-green-400"/>
@@ -590,7 +588,6 @@ export default function App() {
         </div>
       )}
 
-      {/* DESKTOP SHARE MODAL */}
       {showDesktopShareModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
@@ -643,7 +640,6 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
           <div className="text-center mb-6">
@@ -783,7 +779,6 @@ export default function App() {
 
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        {/* LEFT COLUMN: SIDEBAR */}
         <div className="space-y-6">
           {activeReceipt ? (
             <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs sticky top-24 space-y-3">
@@ -893,7 +888,7 @@ export default function App() {
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
+                          <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
                         </button>
                         <button
                           onClick={(e) => handleDeleteEvent(e, ev.id)}
@@ -911,7 +906,6 @@ export default function App() {
           )}
         </div>
 
-        {/* RIGHT COLUMN: CONTENT */}
         <div className="md:col-span-2 space-y-6">
           {!currentEventId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
@@ -993,7 +987,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CALCULATION SUMMARY CARD */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-black"/> Calculation Summary
@@ -1014,7 +1007,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Recommended Settlements Card */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
@@ -1092,8 +1084,13 @@ export default function App() {
                         return (
                           <button
                             key={p.id}
+                            type="button"
+                            onTouchEnd={(e) => {
+                              e.preventDefault();
+                              handleToggleParticipant(item, p.id);
+                            }}
                             onClick={() => handleToggleParticipant(item, p.id)}
-                            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${
+                            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all select-none touch-manipulation ${
                               isSelected 
                                 ? 'bg-black text-white border-black shadow-sm' 
                                 : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300'
@@ -1107,7 +1104,6 @@ export default function App() {
                   </div>
                 ))}
 
-                {/* EDITABLE FINANCIAL BREAKDOWN */}
                 <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3 mt-6">
                   <div className="flex items-center justify-between text-sm gap-4">
                     <span className="text-neutral-500 font-medium">Subtotal</span>
@@ -1199,7 +1195,6 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
-                {/* RECEIPTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -1222,7 +1217,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* PARTICIPANTS CARD */}
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
@@ -1261,7 +1255,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SCANNED RECEIPTS LIST */}
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                  <div className="flex items-center justify-between mb-4">
                    <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-2">
@@ -1347,7 +1340,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ALL SET AESTHETIC BANNER */}
               {isReadyForSummary && (
                 <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col sm:flex-row items-center justify-between gap-6 transition-all animate-in fade-in zoom-in-95">
                   <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-5">
