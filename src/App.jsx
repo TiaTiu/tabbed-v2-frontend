@@ -4,7 +4,19 @@ import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
+// Helper function to manage the browser's unique user token
+const getOrCreateUserToken = () => {
+  let token = localStorage.getItem('tabbed_user_token');
+  if (!token) {
+    token = 'user_' + Math.random().toString(36).substring(2) + Date.now();
+    localStorage.setItem('tabbed_user_token', token);
+  }
+  return token;
+};
+
 export default function App() {
+  const [userToken] = useState(getOrCreateUserToken());
+  
   const [events, setEvents] = useState([]);
   const [currentEventId, setCurrentEventId] = useState(null);
   const [eventData, setEventData] = useState(null);
@@ -61,13 +73,14 @@ export default function App() {
       if (viewParam) setCurrentView(viewParam);
     }
     
-    fetch(`${API_URL}/events/`)
+    // Fetch only events created by this specific user session
+    fetch(`${API_URL}/events/?owner_token=${userToken}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setEvents(data);
       })
       .catch(console.error);
-  }, []);
+  }, [userToken]);
 
   useEffect(() => {
     if (currentEventId) {
@@ -106,7 +119,8 @@ export default function App() {
       const res = await fetch(`${API_URL}/events/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newEventName })
+        // Attach the token so the backend knows who owns this event
+        body: JSON.stringify({ name: newEventName, owner_token: userToken })
       });
       const data = await res.json();
       setEvents(prev => Array.isArray(prev) ? [...prev, data] : [data]);
