@@ -160,23 +160,34 @@ export default function App() {
     const nameToAdd = newParticipantName;
     setNewParticipantName("");
 
-    const tempParticipant = { id: Date.now(), name: nameToAdd };
+    // 1. Create a temporary ID so it shows up instantly on screen
+    const tempId = Date.now();
+    const tempParticipant = { id: tempId, name: nameToAdd };
+    
     setEventData(prev => ({
       ...prev,
       participants: [...(prev?.participants || []), tempParticipant]
     }));
 
     try {
-      await fetch(`${API_URL}/participants/`, {
+      // 2. Send to backend
+      const res = await fetch(`${API_URL}/participants/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: nameToAdd, event_id: currentEventId })
       });
-      fetchEventDetails(currentEventId);
+      const newDbParticipant = await res.json();
+
+      // 3. Silently swap the temporary ID with the real database ID without refreshing the whole screen
+      setEventData(prev => ({
+        ...prev,
+        participants: prev.participants.map(p => p.id === tempId ? newDbParticipant : p)
+      }));
+      
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error adding participant:", err);
-      fetchEventDetails(currentEventId);
+      fetchEventDetails(currentEventId); // Only force a hard refresh if it fails
     }
   };
 
@@ -264,13 +275,15 @@ export default function App() {
         throw new Error(data.detail || "Server error during upload.");
       }
 
-      fetchEventDetails(currentEventId);
-      fetchSettlement(currentEventId);
+      // Add 'await' here so the spinner stays active while downloading the fresh data!
+      await fetchEventDetails(currentEventId);
+      await fetchSettlement(currentEventId);
+      
     } catch (err) {
       console.error("Error uploading receipts with Gemini:", err);
       alert("Upload failed: " + err.message);
     } finally {
-      setIsUploading(false);
+      setIsUploading(false); // Now it only turns off after the new receipts are visible
       e.target.value = null;
     }
   };
