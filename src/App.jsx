@@ -21,9 +21,10 @@ export default function App() {
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
 
-  // Synchronous assignments map & network debounce timers
+  // Synchronous assignments map, network debounce timers, and AbortControllers
   const assignmentsRef = useRef({});
   const debounceTimers = useRef({});
+  const abortControllers = useRef({});
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
@@ -212,7 +213,6 @@ export default function App() {
       await fetch(`${API_URL}/participants/${participantId}`, {
         method: "DELETE",
       });
-      // Removed fetchEventDetails to prevent reappearing on server lag
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting participant:", err);
@@ -221,7 +221,6 @@ export default function App() {
   };
 
   const handleDeleteReceipt = async (receiptId) => {
-    // 1. Optimistic UI update instantly removes receipt
     setEventData(prev => ({
       ...prev,
       receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
@@ -229,16 +228,14 @@ export default function App() {
 
     if (activeReceiptId === receiptId) setActiveReceiptId(null);
 
-    // 2. Perform network request
     try {
       await fetch(`${API_URL}/receipts/${receiptId}`, {
         method: "DELETE",
       });
-      // Removed fetchEventDetails(currentEventId) here so server lag doesn't overwrite our local delete
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting receipt:", err);
-      fetchEventDetails(currentEventId); // Only refetch if it genuinely failed
+      fetchEventDetails(currentEventId); 
     }
   };
 
@@ -330,7 +327,14 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 5. Debounce the network request (Wait 500ms before sending to backend)
+    // 5. Abort any previous lagging network requests for this specific item
+    if (abortControllers.current[item.id]) {
+      abortControllers.current[item.id].abort();
+    }
+    const controller = new AbortController();
+    abortControllers.current[item.id] = controller;
+
+    // 6. Send the definitive payload to the backend
     if (debounceTimers.current[item.id]) {
       clearTimeout(debounceTimers.current[item.id]);
     }
@@ -340,14 +344,19 @@ export default function App() {
         await fetch(`${API_URL}/items/${item.id}/assign`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ participant_ids: assignmentsRef.current[item.id] }) // Pull freshest state from ref
+          body: JSON.stringify({ participant_ids: assignmentsRef.current[item.id] }),
+          signal: controller.signal
         });
         fetchSettlement(currentEventId);
       } catch (err) {
-        console.error("Error updating item assignments:", err);
-        fetchEventDetails(currentEventId); // Revert on failure
+        if (err.name === 'AbortError') {
+          console.log(`Intercepted and killed a lagging network request for item ${item.id}.`);
+        } else {
+          console.error("Error updating item assignments:", err);
+          fetchEventDetails(currentEventId); // Revert UI only on a genuine network failure
+        }
       }
-    }, 500);
+    }, 350); 
   };
 
   const calculateReceiptTotals = (receipt) => {
