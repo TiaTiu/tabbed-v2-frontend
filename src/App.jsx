@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
@@ -21,6 +21,12 @@ export default function App() {
   const [currentEventId, setCurrentEventId] = useState(null);
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
+
+  // Ref to always hold the freshest eventData for rapid-fire click handlers
+  const eventDataRef = useRef(null);
+  useEffect(() => {
+    eventDataRef.current = eventData;
+  }, [eventData]);
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
@@ -288,23 +294,38 @@ export default function App() {
   };
 
   const handleToggleParticipant = async (item, participantId) => {
-    // 1. Calculate new assignment list locally right away
-    const currentIds = item.participants?.map(p => p.id) || [];
-    const isSelected = currentIds.includes(participantId);
-    const newIds = isSelected
-      ? currentIds.filter(id => id !== participantId)
-      : [...currentIds, participantId];
+    // 1. Get the absolute freshest state using the ref
+    const currentEvent = eventDataRef.current;
+    if (!currentEvent) return;
 
-    // 2. Optimistically update UI state immediately
+    // Find the most up-to-date version of this item
+    let currentItem = item;
+    for (const r of currentEvent.receipts) {
+      const found = r.items.find(i => i.id === item.id);
+      if (found) { currentItem = found; break; }
+    }
+
+    // 2. Calculate new assignment list based on fresh state
+    const currentParticipantObjs = currentItem.participants || [];
+    const isSelected = currentParticipantObjs.some(p => p.id === participantId);
+    
+    let newParticipantObjs;
+    if (isSelected) {
+      newParticipantObjs = currentParticipantObjs.filter(p => p.id !== participantId);
+    } else {
+      const fullParticipant = currentEvent.participants.find(p => p.id === participantId) || { id: participantId };
+      newParticipantObjs = [...currentParticipantObjs, fullParticipant];
+    }
+    
+    const newIds = newParticipantObjs.map(p => p.id);
+
+    // 3. Optimistically update UI state immediately
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
         ...r,
         items: r.items.map(i => {
           if (i.id === item.id) {
-            const newParticipantObjs = newIds.map(id => 
-              prev.participants.find(p => p.id === id) || { id }
-            );
             return { ...i, participants: newParticipantObjs };
           }
           return i;
@@ -313,16 +334,17 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 3. Fire backend update quietly without forcing clashing re-fetches
+    // 4. Send correct payload safely to backend
     try {
       await fetch(`${API_URL}/items/${item.id}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participant_ids: newIds })
       });
+      // Do NOT trigger fetchEventDetails() on success to avoid background overwrite
     } catch (err) {
       console.error("Error updating item assignments:", err);
-      fetchEventDetails(currentEventId); // Revert only if network fails
+      fetchEventDetails(currentEventId); // Revert on failure
     }
   };
 
