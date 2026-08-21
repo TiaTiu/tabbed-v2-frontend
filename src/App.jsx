@@ -4,7 +4,6 @@ import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
-// Helper function to manage the browser's unique user token
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
   if (!token) {
@@ -22,9 +21,9 @@ export default function App() {
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
 
-  // Synchronous assignments map (itemId -> array of participantIds)
-  // Updates synchronously in memory so rapid clicks never read stale data
+  // Synchronous assignments map & network debounce timers
   const assignmentsRef = useRef({});
+  const debounceTimers = useRef({});
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
@@ -38,7 +37,6 @@ export default function App() {
   const [modalImage, setModalImage] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  // Desktop Share Modal States
   const [showDesktopShareModal, setShowDesktopShareModal] = useState(false);
   const [desktopShareImage, setDesktopShareImage] = useState(null);
   const [desktopShareText, setDesktopShareText] = useState("");
@@ -77,7 +75,6 @@ export default function App() {
       if (viewParam) setCurrentView(viewParam);
     }
     
-    // Fetch only events created by this specific user session
     fetch(`${API_URL}/events/?owner_token=${userToken}`)
       .then(res => res.json())
       .then(data => {
@@ -102,7 +99,6 @@ export default function App() {
       const data = await res.json();
       setEventData(data);
 
-      // Seed/sync synchronous assignments ref with server state
       if (data?.receipts) {
         const map = {};
         data.receipts.forEach(r => {
@@ -198,7 +194,7 @@ export default function App() {
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error adding participant:", err);
-      fetchEventDetails(currentEventId);
+      fetchEventDetails(currentEventId); 
     }
   };
 
@@ -216,7 +212,7 @@ export default function App() {
       await fetch(`${API_URL}/participants/${participantId}`, {
         method: "DELETE",
       });
-      fetchEventDetails(currentEventId);
+      // Removed fetchEventDetails to prevent reappearing on server lag
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting participant:", err);
@@ -225,21 +221,24 @@ export default function App() {
   };
 
   const handleDeleteReceipt = async (receiptId) => {
+    // 1. Optimistic UI update instantly removes receipt
     setEventData(prev => ({
       ...prev,
       receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
     }));
 
+    if (activeReceiptId === receiptId) setActiveReceiptId(null);
+
+    // 2. Perform network request
     try {
       await fetch(`${API_URL}/receipts/${receiptId}`, {
         method: "DELETE",
       });
-      fetchEventDetails(currentEventId);
+      // Removed fetchEventDetails(currentEventId) here so server lag doesn't overwrite our local delete
       fetchSettlement(currentEventId);
-      if (activeReceiptId === receiptId) setActiveReceiptId(null);
     } catch (err) {
       console.error("Error deleting receipt:", err);
-      fetchEventDetails(currentEventId);
+      fetchEventDetails(currentEventId); // Only refetch if it genuinely failed
     }
   };
 
@@ -298,19 +297,19 @@ export default function App() {
     }
   };
 
-  const handleToggleParticipant = async (item, participantId) => {
-    // 1. Get current assigned IDs synchronously from ref, fallback to item.participants
+  const handleToggleParticipant = (item, participantId) => {
+    // 1. Get current assigned IDs synchronously from ref
     const currentIds = assignmentsRef.current[item.id] !== undefined
       ? assignmentsRef.current[item.id]
       : (item.participants?.map(p => p.id) || []);
 
-    // 2. Compute new IDs list
+    // 2. Compute new IDs list instantly
     const isSelected = currentIds.includes(participantId);
     const newIds = isSelected
       ? currentIds.filter(id => id !== participantId)
       : [...currentIds, participantId];
 
-    // 3. Update the ref SYNCHRONOUSLY in memory right now before any async or render boundary
+    // 3. Update the ref SYNCHRONOUSLY
     assignmentsRef.current[item.id] = newIds;
 
     // 4. Update UI state optimistically
@@ -331,17 +330,24 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 5. Send exact payload to backend securely
-    try {
-      await fetch(`${API_URL}/items/${item.id}/assign`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participant_ids: newIds })
-      });
-    } catch (err) {
-      console.error("Error updating item assignments:", err);
-      fetchEventDetails(currentEventId); // Revert on failure
+    // 5. Debounce the network request (Wait 500ms before sending to backend)
+    if (debounceTimers.current[item.id]) {
+      clearTimeout(debounceTimers.current[item.id]);
     }
+
+    debounceTimers.current[item.id] = setTimeout(async () => {
+      try {
+        await fetch(`${API_URL}/items/${item.id}/assign`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participant_ids: assignmentsRef.current[item.id] }) // Pull freshest state from ref
+        });
+        fetchSettlement(currentEventId);
+      } catch (err) {
+        console.error("Error updating item assignments:", err);
+        fetchEventDetails(currentEventId); // Revert on failure
+      }
+    }, 500);
   };
 
   const calculateReceiptTotals = (receipt) => {
