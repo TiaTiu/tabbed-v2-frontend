@@ -22,11 +22,9 @@ export default function App() {
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
 
-  // Ref to always hold the freshest eventData for rapid-fire click handlers
-  const eventDataRef = useRef(null);
-  useEffect(() => {
-    eventDataRef.current = eventData;
-  }, [eventData]);
+  // Synchronous assignments map (itemId -> array of participantIds)
+  // Updates synchronously in memory so rapid clicks never read stale data
+  const assignmentsRef = useRef({});
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
@@ -103,6 +101,17 @@ export default function App() {
       const res = await fetch(`${API_URL}/events/${id}`);
       const data = await res.json();
       setEventData(data);
+
+      // Seed/sync synchronous assignments ref with server state
+      if (data?.receipts) {
+        const map = {};
+        data.receipts.forEach(r => {
+          r.items?.forEach(i => {
+            map[i.id] = i.participants?.map(p => p.id) || [];
+          });
+        });
+        assignmentsRef.current = map;
+      }
     } catch (err) {
       console.error("Error fetching event details:", err);
     }
@@ -125,7 +134,6 @@ export default function App() {
       const res = await fetch(`${API_URL}/events/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Attach the token so the backend knows who owns this event
         body: JSON.stringify({ name: newEventName, owner_token: userToken })
       });
       const data = await res.json();
@@ -166,7 +174,6 @@ export default function App() {
     const nameToAdd = newParticipantName;
     setNewParticipantName("");
 
-    // 1. Create a temporary ID so it shows up instantly on screen
     const tempId = Date.now();
     const tempParticipant = { id: tempId, name: nameToAdd };
     
@@ -176,7 +183,6 @@ export default function App() {
     }));
 
     try {
-      // 2. Send to backend
       const res = await fetch(`${API_URL}/participants/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,7 +190,6 @@ export default function App() {
       });
       const newDbParticipant = await res.json();
 
-      // 3. Silently swap the temporary ID with the real database ID without refreshing the whole screen
       setEventData(prev => ({
         ...prev,
         participants: prev.participants.map(p => p.id === tempId ? newDbParticipant : p)
@@ -193,7 +198,7 @@ export default function App() {
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error adding participant:", err);
-      fetchEventDetails(currentEventId); // Only force a hard refresh if it fails
+      fetchEventDetails(currentEventId);
     }
   };
 
@@ -294,38 +299,30 @@ export default function App() {
   };
 
   const handleToggleParticipant = async (item, participantId) => {
-    // 1. Get the absolute freshest state using the ref
-    const currentEvent = eventDataRef.current;
-    if (!currentEvent) return;
+    // 1. Get current assigned IDs synchronously from ref, fallback to item.participants
+    const currentIds = assignmentsRef.current[item.id] !== undefined
+      ? assignmentsRef.current[item.id]
+      : (item.participants?.map(p => p.id) || []);
 
-    // Find the most up-to-date version of this item
-    let currentItem = item;
-    for (const r of currentEvent.receipts) {
-      const found = r.items.find(i => i.id === item.id);
-      if (found) { currentItem = found; break; }
-    }
+    // 2. Compute new IDs list
+    const isSelected = currentIds.includes(participantId);
+    const newIds = isSelected
+      ? currentIds.filter(id => id !== participantId)
+      : [...currentIds, participantId];
 
-    // 2. Calculate new assignment list based on fresh state
-    const currentParticipantObjs = currentItem.participants || [];
-    const isSelected = currentParticipantObjs.some(p => p.id === participantId);
-    
-    let newParticipantObjs;
-    if (isSelected) {
-      newParticipantObjs = currentParticipantObjs.filter(p => p.id !== participantId);
-    } else {
-      const fullParticipant = currentEvent.participants.find(p => p.id === participantId) || { id: participantId };
-      newParticipantObjs = [...currentParticipantObjs, fullParticipant];
-    }
-    
-    const newIds = newParticipantObjs.map(p => p.id);
+    // 3. Update the ref SYNCHRONOUSLY in memory right now before any async or render boundary
+    assignmentsRef.current[item.id] = newIds;
 
-    // 3. Optimistically update UI state immediately
+    // 4. Update UI state optimistically
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
         ...r,
         items: r.items.map(i => {
           if (i.id === item.id) {
+            const newParticipantObjs = newIds.map(id => 
+              prev.participants.find(p => p.id === id) || { id }
+            );
             return { ...i, participants: newParticipantObjs };
           }
           return i;
@@ -334,14 +331,13 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 4. Send correct payload safely to backend
+    // 5. Send exact payload to backend securely
     try {
       await fetch(`${API_URL}/items/${item.id}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participant_ids: newIds })
       });
-      // Do NOT trigger fetchEventDetails() on success to avoid background overwrite
     } catch (err) {
       console.error("Error updating item assignments:", err);
       fetchEventDetails(currentEventId); // Revert on failure
