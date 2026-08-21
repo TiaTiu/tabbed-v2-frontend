@@ -146,20 +146,22 @@ export default function App() {
     e.stopPropagation();
     if (!window.confirm("Are you sure you want to delete this event and all its data?")) return;
 
-    setEvents(prev => prev.filter(ev => ev.id !== eventId));
-    if (currentEventId === eventId) {
-      setCurrentEventId(null);
-      setEventData(null);
-      setCurrentView('dashboard');
-      window.history.pushState({ path: '/' }, '', '/');
-    }
-
     try {
-      await fetch(`${API_URL}/events/${eventId}`, {
+      const res = await fetch(`${API_URL}/events/${eventId}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error("Server failed to delete event");
+
+      setEvents(prev => prev.filter(ev => ev.id !== eventId));
+      if (currentEventId === eventId) {
+        setCurrentEventId(null);
+        setEventData(null);
+        setCurrentView('dashboard');
+        window.history.pushState({ path: '/' }, '', '/');
+      }
     } catch (err) {
       console.error("Error deleting event:", err);
+      alert("Failed to delete event. Please try again.");
     }
   };
 
@@ -198,42 +200,50 @@ export default function App() {
   };
 
   const handleDeleteParticipant = async (participantId) => {
-    setEventData(prev => ({
-      ...prev,
-      participants: (prev?.participants || []).filter(p => p.id !== participantId),
-      receipts: (prev?.receipts || []).map(r => ({
-        ...r,
-        payers: (r.payers || []).filter(pr => pr.participant_id !== participantId)
-      }))
-    }));
+    if (!window.confirm("Are you sure you want to delete this participant?")) return;
 
     try {
-      await fetch(`${API_URL}/participants/${participantId}`, {
+      const res = await fetch(`${API_URL}/participants/${participantId}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error("Server failed to delete participant");
+
+      setEventData(prev => ({
+        ...prev,
+        participants: (prev?.participants || []).filter(p => p.id !== participantId),
+        receipts: (prev?.receipts || []).map(r => ({
+          ...r,
+          payers: (r.payers || []).filter(pr => pr.participant_id !== participantId)
+        }))
+      }));
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting participant:", err);
+      alert("Failed to delete participant. Please try again.");
       fetchEventDetails(currentEventId);
     }
   };
 
   const handleDeleteReceipt = async (receiptId) => {
-    setEventData(prev => ({
-      ...prev,
-      receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
-    }));
-
-    if (activeReceiptId === receiptId) setActiveReceiptId(null);
+    if (!window.confirm("Are you sure you want to delete this receipt?")) return;
 
     try {
-      await fetch(`${API_URL}/receipts/${receiptId}`, {
+      const res = await fetch(`${API_URL}/receipts/${receiptId}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error("Server failed to delete receipt");
+
+      setEventData(prev => ({
+        ...prev,
+        receipts: (prev?.receipts || []).filter(r => r.id !== receiptId)
+      }));
+
+      if (activeReceiptId === receiptId) setActiveReceiptId(null);
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error deleting receipt:", err);
-      fetchEventDetails(currentEventId); 
+      alert("Failed to delete receipt. Please try again.");
+      fetchEventDetails(currentEventId);
     }
   };
 
