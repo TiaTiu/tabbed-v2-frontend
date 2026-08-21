@@ -275,7 +275,6 @@ export default function App() {
         throw new Error(data.detail || "Server error during upload.");
       }
 
-      // Add 'await' here so the spinner stays active while downloading the fresh data!
       await fetchEventDetails(currentEventId);
       await fetchSettlement(currentEventId);
       
@@ -283,20 +282,20 @@ export default function App() {
       console.error("Error uploading receipts with Gemini:", err);
       alert("Upload failed: " + err.message);
     } finally {
-      setIsUploading(false); // Now it only turns off after the new receipts are visible
+      setIsUploading(false);
       e.target.value = null;
     }
   };
 
   const handleToggleParticipant = async (item, participantId) => {
-    // 1. Calculate the expected new state immediately on the frontend
+    // 1. Calculate new assignment list locally right away
     const currentIds = item.participants?.map(p => p.id) || [];
     const isSelected = currentIds.includes(participantId);
     const newIds = isSelected
       ? currentIds.filter(id => id !== participantId)
       : [...currentIds, participantId];
 
-    // 2. Optimistically update local state immediately
+    // 2. Optimistically update UI state immediately
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
@@ -314,17 +313,16 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 3. Send update to backend securely
+    // 3. Fire backend update quietly without forcing clashing re-fetches
     try {
       await fetch(`${API_URL}/items/${item.id}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participant_ids: newIds })
       });
-      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item assignments:", err);
-      fetchEventDetails(currentEventId);
+      fetchEventDetails(currentEventId); // Revert only if network fails
     }
   };
 
