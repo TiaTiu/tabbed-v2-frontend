@@ -289,17 +289,23 @@ export default function App() {
   };
 
   const handleToggleParticipant = async (item, participantId) => {
+    // 1. Calculate the expected new state immediately on the frontend
+    const currentIds = item.participants?.map(p => p.id) || [];
+    const isSelected = currentIds.includes(participantId);
+    const newIds = isSelected
+      ? currentIds.filter(id => id !== participantId)
+      : [...currentIds, participantId];
+
+    // 2. Optimistically update local state immediately
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
         ...r,
         items: r.items.map(i => {
           if (i.id === item.id) {
-            const currentIds = i.participants?.map(p => p.id) || [];
-            const isSelected = currentIds.includes(participantId);
-            const newParticipantObjs = isSelected
-              ? i.participants.filter(p => p.id !== participantId)
-              : [...(i.participants || []), prev.participants.find(p => p.id === participantId) || { id: participantId }];
+            const newParticipantObjs = newIds.map(id => 
+              prev.participants.find(p => p.id === id) || { id }
+            );
             return { ...i, participants: newParticipantObjs };
           }
           return i;
@@ -308,11 +314,7 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    const currentIds = item.participants?.map(p => p.id) || [];
-    let newIds = currentIds.includes(participantId)
-      ? currentIds.filter(id => id !== participantId)
-      : [...currentIds, participantId];
-
+    // 3. Send update to backend securely
     try {
       await fetch(`${API_URL}/items/${item.id}/assign`, {
         method: "PUT",
