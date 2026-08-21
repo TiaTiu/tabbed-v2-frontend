@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
+const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
@@ -888,7 +888,7 @@ export default function App() {
                           className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
+                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
                         </button>
                         <button
                           onClick={(e) => handleDeleteEvent(e, ev.id)}
