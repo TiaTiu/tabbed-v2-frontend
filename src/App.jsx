@@ -28,8 +28,6 @@ export default function App() {
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
-  const [receiptTitle, setReceiptTitle] = useState("");
-  const [receiptAmount, setReceiptAmount] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   
   const [activeReceiptId, setActiveReceiptId] = useState(null);
@@ -239,28 +237,6 @@ export default function App() {
     }
   };
 
-  const handleAddReceipt = async (e) => {
-    e.preventDefault();
-    if (!receiptTitle.trim() || !receiptAmount || !currentEventId) return;
-    try {
-      await fetch(`${API_URL}/receipts/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          title: receiptTitle, 
-          total_amount: parseFloat(receiptAmount), 
-          event_id: currentEventId 
-        })
-      });
-      setReceiptTitle("");
-      setReceiptAmount("");
-      fetchEventDetails(currentEventId);
-      fetchSettlement(currentEventId);
-    } catch (err) {
-      console.error("Error adding receipt:", err);
-    }
-  };
-
   const handleGeminiBulkUpload = async (e) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !currentEventId) return;
@@ -295,21 +271,17 @@ export default function App() {
   };
 
   const handleToggleParticipant = (item, participantId) => {
-    // 1. Get current assigned IDs synchronously from ref
     const currentIds = assignmentsRef.current[item.id] !== undefined
       ? assignmentsRef.current[item.id]
       : (item.participants?.map(p => p.id) || []);
 
-    // 2. Compute new IDs list instantly
     const isSelected = currentIds.includes(participantId);
     const newIds = isSelected
       ? currentIds.filter(id => id !== participantId)
       : [...currentIds, participantId];
 
-    // 3. Update the ref SYNCHRONOUSLY
     assignmentsRef.current[item.id] = newIds;
 
-    // 4. Update UI state optimistically
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => ({
@@ -327,14 +299,12 @@ export default function App() {
       return { ...prev, receipts: updatedReceipts };
     });
 
-    // 5. Abort any previous lagging network requests for this specific item
     if (abortControllers.current[item.id]) {
       abortControllers.current[item.id].abort();
     }
     const controller = new AbortController();
     abortControllers.current[item.id] = controller;
 
-    // 6. Send the definitive payload to the backend
     if (debounceTimers.current[item.id]) {
       clearTimeout(debounceTimers.current[item.id]);
     }
@@ -353,7 +323,7 @@ export default function App() {
           console.log(`Intercepted and killed a lagging network request for item ${item.id}.`);
         } else {
           console.error("Error updating item assignments:", err);
-          fetchEventDetails(currentEventId); // Revert UI only on a genuine network failure
+          fetchEventDetails(currentEventId);
         }
       }
     }, 350); 
@@ -1226,7 +1196,7 @@ export default function App() {
                       <Receipt className="w-4 h-4 text-black"/> Receipts
                     </h3>
                     
-                    <div className="mb-4">
+                    <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
                         {isUploading ? "Uploading & Scanning..." : "Upload Receipts"}
                       </label>
@@ -1239,29 +1209,6 @@ export default function App() {
                         className="w-full text-xs text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-black file:text-white hover:file:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                       />
                     </div>
-
-                    <form onSubmit={handleAddReceipt} className="space-y-3 pt-4 border-t border-neutral-100">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Manual Entry</p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="text"
-                          placeholder="Title"
-                          value={receiptTitle}
-                          onChange={(e) => setReceiptTitle(e.target.value)}
-                          className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Amount (Rp)"
-                          value={receiptAmount}
-                          onChange={(e) => setReceiptAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                          className="w-full sm:w-1/2 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black"
-                        />
-                      </div>
-                      <button type="submit" className="w-full bg-neutral-100 hover:bg-neutral-200 text-black py-2 rounded-xl text-sm font-medium transition-colors border border-neutral-200">
-                        Add Receipt Manually
-                      </button>
-                    </form>
                   </div>
                 </div>
 
