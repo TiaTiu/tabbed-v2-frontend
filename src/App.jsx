@@ -703,10 +703,11 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-3 pb-2">
-              <span className="text-sm font-semibold text-neutral-400 tracking-wide">
-                Tabbed by <strong className="text-neutral-900 font-extrabold tracking-tight text-xl ml-1">Tiara</strong>
+            <div className="text-center pt-4 pb-2 flex items-baseline justify-center gap-2">
+              <span className="text-lg font-semibold text-neutral-400 tracking-wide">
+                Tabbed by
               </span>
+              <strong className="text-neutral-900 font-black tracking-tighter text-4xl">Tiara</strong>
             </div>
           </div>
         </div>
@@ -778,14 +779,8 @@ export default function App() {
           </div>
         )}
 
-        {/* FIXED: ENSURE EVENT NAME BADGE SHOWS UP CORRECTLY UPON FETCH */}
+        {/* REMOVED EVENT NAME BADGE AS REQUESTED */}
         <div className="flex items-center gap-4">
-          {eventData?.name && (
-            <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
-              Event: <span className="text-black font-semibold">{eventData.name}</span>
-            </div>
-          )}
-          
           {eventData && currentView === 'summary' && !isSharedView && (
             <button 
               onClick={handleOpenShareModal}
