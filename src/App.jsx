@@ -93,7 +93,6 @@ export default function App() {
     }
   }, [userToken]);
 
-  // Handle Fetching Data independently to avoid fetching on view switch
   useEffect(() => {
     if (currentEventId) {
       setIsLoadingEvent(true);
@@ -109,7 +108,6 @@ export default function App() {
     }
   }, [currentEventId]);
 
-  // Handle URL history push state independently
   useEffect(() => {
     if (currentEventId) {
       const newUrl = `${window.location.pathname}?event=${currentEventId}&view=${currentView}${isSharedView ? '&shared=true' : ''}`;
@@ -558,6 +556,7 @@ export default function App() {
       const blob = await toBlob(summaryElement, { 
         cacheBust: true, 
         backgroundColor: '#ffffff',
+        style: { background: '#ffffff' },
         pixelRatio: 3 
       });
 
@@ -667,10 +666,10 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET */}
+      {/* OFF-SCREEN RENDER TARGET - Strictly constrained pure white for flawless sharing */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        <div id="share-image-wrapper" className="bg-white p-10 flex items-center justify-center w-[500px]">
-          <div className="w-[420px] bg-white p-8 rounded-[36px] space-y-6 border border-neutral-200/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative overflow-hidden">
+        <div id="share-image-wrapper" style={{ backgroundColor: '#ffffff', width: '520px', padding: '40px' }}>
+          <div style={{ backgroundColor: '#ffffff' }} className="w-full p-8 rounded-[36px] space-y-6 border border-neutral-200/80">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-black text-neutral-900 tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mt-1">Total Spending & Settlements</p>
@@ -719,11 +718,13 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-3 pb-2 flex items-baseline justify-center gap-1.5">
-              <span className="text-sm font-semibold text-neutral-400 tracking-wide">
+            <div className="text-center pt-4 pb-2">
+              <span className="text-xl font-semibold text-neutral-400 tracking-wide">
                 Tabbed by
               </span>
-              <strong className="text-neutral-900 font-black tracking-tight text-xl">Tiara</strong>
+              <strong className="text-neutral-900 font-black tracking-tighter text-4xl ml-2">
+                Tiara
+              </strong>
             </div>
           </div>
         </div>
@@ -1245,11 +1246,8 @@ export default function App() {
             <div className="space-y-6">
 
               {currentEventId && eventData && (
-                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-neutral-900">{eventData.name} Dashboard</h2>
-                    <p className="text-sm text-neutral-500 font-medium mt-1">Manage participants and scanned receipts.</p>
-                  </div>
+                <div className="bg-white border border-neutral-200 rounded-xl px-5 py-3.5 shadow-sm mb-2">
+                  <h2 className="text-lg font-bold tracking-tight text-neutral-900">{eventData.name}</h2>
                 </div>
               )}
 
