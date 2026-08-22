@@ -651,9 +651,9 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET WITH SLEEK APPLE-STYLE DESIGN */}
+      {/* OFF-SCREEN RENDER TARGET WITH PURE WHITE BACKGROUND AND LARGE BRANDING */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        <div id="share-image-wrapper" className="bg-[#f5f5f7] p-10 flex items-center justify-center w-[500px]">
+        <div id="share-image-wrapper" className="bg-white p-10 flex items-center justify-center w-[500px]">
           <div className="w-[420px] bg-white p-8 rounded-[36px] space-y-6 border border-neutral-200/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative overflow-hidden">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-black text-neutral-900 tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
@@ -703,9 +703,9 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-2 pb-1">
-              <span className="text-xs font-semibold text-neutral-400 tracking-wide">
-                Tabbed by <strong className="text-neutral-900 font-bold tracking-tight text-base ml-1">Tiara</strong>
+            <div className="text-center pt-3 pb-2">
+              <span className="text-sm font-semibold text-neutral-400 tracking-wide">
+                Tabbed by <strong className="text-neutral-900 font-extrabold tracking-tight text-xl ml-1">Tiara</strong>
               </span>
             </div>
           </div>
@@ -778,23 +778,24 @@ export default function App() {
           </div>
         )}
 
-        {eventData && (
-          <div className="hidden sm:flex items-center gap-4">
+        {/* FIXED: ENSURE EVENT NAME BADGE SHOWS UP CORRECTLY UPON FETCH */}
+        <div className="flex items-center gap-4">
+          {eventData?.name && (
             <div className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200">
-              Event: <span className="text-black font-semibold">{eventData?.name}</span>
+              Event: <span className="text-black font-semibold">{eventData.name}</span>
             </div>
-            
-            {currentView === 'summary' && !isSharedView && (
-              <button 
-                onClick={handleOpenShareModal}
-                disabled={isSharing}
-                className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
-              >
-                <Share2 className="w-3.5 h-3.5"/> {isSharing ? "Loading..." : "Share"}
-              </button>
-            )}
-          </div>
-        )}
+          )}
+          
+          {eventData && currentView === 'summary' && !isSharedView && (
+            <button 
+              onClick={handleOpenShareModal}
+              disabled={isSharing}
+              className="hidden sm:flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+            >
+              <Share2 className="w-3.5 h-3.5"/> {isSharing ? "Loading..." : "Share"}
+            </button>
+          )}
+        </div>
       </header>
 
       <main className={`flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 ${isSharedView ? '' : 'md:grid-cols-3'} gap-8`}>
