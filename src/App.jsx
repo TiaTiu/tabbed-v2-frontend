@@ -20,6 +20,7 @@ export default function App() {
   const [currentEventId, setCurrentEventId] = useState(null);
   const [eventData, setEventData] = useState(null);
   const [settlement, setSettlement] = useState(null);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(false);
 
   const assignmentsRef = useRef({});
   const debounceTimers = useRef({});
@@ -92,13 +93,29 @@ export default function App() {
     }
   }, [userToken]);
 
+  // Handle Fetching Data independently to avoid fetching on view switch
   useEffect(() => {
     if (currentEventId) {
-      fetchEventDetails(currentEventId);
-      fetchSettlement(currentEventId);
-      
+      setIsLoadingEvent(true);
+      Promise.all([
+        fetchEventDetails(currentEventId),
+        fetchSettlement(currentEventId)
+      ]).finally(() => {
+        setIsLoadingEvent(false);
+      });
+    } else {
+      setEventData(null);
+      setSettlement(null);
+    }
+  }, [currentEventId]);
+
+  // Handle URL history push state independently
+  useEffect(() => {
+    if (currentEventId) {
       const newUrl = `${window.location.pathname}?event=${currentEventId}&view=${currentView}${isSharedView ? '&shared=true' : ''}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
+    } else {
+      window.history.pushState({ path: '/' }, '', '/');
     }
   }, [currentEventId, currentView, isSharedView]);
 
@@ -167,7 +184,6 @@ export default function App() {
         setCurrentEventId(null);
         setEventData(null);
         setCurrentView('dashboard');
-        window.history.pushState({ path: '/' }, '', '/');
       }
     } catch (err) {
       console.error("Error deleting event:", err);
@@ -651,7 +667,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET WITH PURE WHITE BACKGROUND AND LARGE BRANDING */}
+      {/* OFF-SCREEN RENDER TARGET */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-wrapper" className="bg-white p-10 flex items-center justify-center w-[500px]">
           <div className="w-[420px] bg-white p-8 rounded-[36px] space-y-6 border border-neutral-200/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative overflow-hidden">
@@ -703,11 +719,11 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-4 pb-2 flex items-baseline justify-center gap-2">
-              <span className="text-lg font-semibold text-neutral-400 tracking-wide">
+            <div className="text-center pt-3 pb-2 flex items-baseline justify-center gap-1.5">
+              <span className="text-sm font-semibold text-neutral-400 tracking-wide">
                 Tabbed by
               </span>
-              <strong className="text-neutral-900 font-black tracking-tighter text-4xl">Tiara</strong>
+              <strong className="text-neutral-900 font-black tracking-tight text-xl">Tiara</strong>
             </div>
           </div>
         </div>
@@ -757,7 +773,6 @@ export default function App() {
           )}
         </div>
 
-        {/* HIDE DASHBOARD/SUMMARY TOGGLE IF SHARED VIEW */}
         {currentEventId && !isSharedView && (
           <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-auto justify-center">
             <button
@@ -779,7 +794,6 @@ export default function App() {
           </div>
         )}
 
-        {/* REMOVED EVENT NAME BADGE AS REQUESTED */}
         <div className="flex items-center gap-4">
           {eventData && currentView === 'summary' && !isSharedView && (
             <button 
@@ -795,7 +809,6 @@ export default function App() {
 
       <main className={`flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 ${isSharedView ? '' : 'md:grid-cols-3'} gap-8`}>
         
-        {/* HIDE SIDEBAR IN SHARED VIEW */}
         {!isSharedView && (
           <div className="space-y-6">
             {activeReceipt ? (
@@ -926,7 +939,13 @@ export default function App() {
         )}
 
         <div className={`${isSharedView ? '' : 'md:col-span-2'} space-y-6`}>
-          {!currentEventId ? (
+          {currentEventId && (!eventData || isLoadingEvent) ? (
+            <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
+              <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full mb-4"></div>
+              <h3 className="text-base font-semibold text-neutral-900 mb-1">Loading Event...</h3>
+              <p className="text-sm text-neutral-500">Fetching latest receipts and calculations.</p>
+            </div>
+          ) : !currentEventId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-black mb-4 shadow-xs">
                 <Receipt className="w-6 h-6"/>
@@ -1224,6 +1243,15 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6">
+
+              {currentEventId && eventData && (
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-neutral-900">{eventData.name} Dashboard</h2>
+                    <p className="text-sm text-neutral-500 font-medium mt-1">Manage participants and scanned receipts.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
