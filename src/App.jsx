@@ -666,7 +666,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET - Strictly constrained pure white for flawless sharing */}
+      {/* OFF-SCREEN RENDER TARGET */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="share-image-wrapper" style={{ backgroundColor: '#ffffff', width: '520px', padding: '40px' }}>
           <div style={{ backgroundColor: '#ffffff' }} className="w-full p-8 rounded-[36px] space-y-6 border border-neutral-200/80">
@@ -1244,12 +1244,6 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6">
-
-              {currentEventId && eventData && (
-                <div className="bg-white border border-neutral-200 rounded-xl px-5 py-3.5 shadow-sm mb-2">
-                  <h2 className="text-lg font-bold tracking-tight text-neutral-900">{eventData.name}</h2>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
