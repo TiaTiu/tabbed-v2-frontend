@@ -651,61 +651,61 @@ export default function App() {
         </div>
       )}
 
-      {/* OFF-SCREEN RENDER TARGET WITH SLEEK WRAPPER */}
+      {/* OFF-SCREEN RENDER TARGET WITH SLEEK APPLE-STYLE DESIGN */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        <div id="share-image-wrapper" className="bg-neutral-100 p-8 flex items-center justify-center w-[484px]">
-          <div className="w-[420px] bg-white p-8 rounded-[32px] space-y-6 border border-neutral-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+        <div id="share-image-wrapper" className="bg-[#f5f5f7] p-10 flex items-center justify-center w-[500px]">
+          <div className="w-[420px] bg-white p-8 rounded-[36px] space-y-6 border border-neutral-200/80 shadow-[0_12px_40px_rgba(0,0,0,0.06)] relative overflow-hidden">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-black text-black tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
-              <p className="text-sm text-neutral-500 font-medium mt-1">Total Spending & Settlements</p>
+              <h2 className="text-2xl font-black text-neutral-900 tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mt-1">Total Spending & Settlements</p>
             </div>
 
-            <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                <Users className="w-4 h-4 text-black"/> Total Spending
+            <div className="bg-neutral-50/70 border border-neutral-200/60 rounded-3xl p-6">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-4 flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-neutral-900"/> Total Spending
               </h3>
               <div className="space-y-4">
                 {settlement?.participant_breakdown?.map((p, idx) => (
-                  <div key={idx} className="flex items-center justify-between pb-4 border-b border-neutral-100 last:border-0 last:pb-0">
+                  <div key={idx} className="flex items-center justify-between pb-4 border-b border-neutral-200/40 last:border-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+                      <div className="w-8 h-8 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs">
                         {p.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-bold text-neutral-900">{p.name}</span>
+                      <span className="font-bold text-neutral-900 text-sm">{p.name}</span>
                     </div>
-                    <span className="font-bold text-black">{formatIDR(p.total_spent)}</span>
+                    <span className="font-bold text-neutral-900 text-sm">{formatIDR(p.total_spent)}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
+            <div className="bg-neutral-50/70 border border-neutral-200/60 rounded-3xl p-6">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-4 flex items-center gap-2">
+                <DollarSign className="w-3.5 h-3.5 text-neutral-900"/> Recommended Settlements
               </h3>
               <div className="space-y-3">
                 {settlement?.settlements?.length > 0 ? (
                   settlement.settlements.map((s, index) => (
-                    <div key={index} className="bg-white border border-neutral-200 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800 shadow-sm">
+                    <div key={index} className="bg-white border border-neutral-200/60 px-4 py-3 rounded-2xl text-xs flex items-center justify-between text-neutral-800">
                       <div className="flex items-center gap-2 font-bold">
-                        <span className="text-black">{s.from}</span>
-                        <ArrowRight className="w-4 h-4 text-neutral-400"/>
-                        <span className="text-black">{s.to}</span>
+                        <span className="text-neutral-900">{s.from}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-neutral-400"/>
+                        <span className="text-neutral-900">{s.to}</span>
                       </div>
-                      <span className="font-bold text-black bg-neutral-100 px-3 py-1 rounded-lg">
+                      <span className="font-bold text-neutral-900 bg-neutral-100/80 px-2.5 py-1 rounded-xl">
                         {formatIDR(s.amount)}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-neutral-500 italic font-medium">No transfers required.</p>
+                  <p className="text-xs text-neutral-400 italic font-medium">No transfers required.</p>
                 )}
               </div>
             </div>
             
-            <div className="text-center pt-4 pb-2">
-              <span className="text-sm font-medium text-neutral-400">
-                Tabbed by <strong className="text-black font-semibold tracking-tight text-xl ml-1">Tiara</strong>
+            <div className="text-center pt-2 pb-1">
+              <span className="text-xs font-semibold text-neutral-400 tracking-wide">
+                Tabbed by <strong className="text-neutral-900 font-bold tracking-tight text-base ml-1">Tiara</strong>
               </span>
             </div>
           </div>
