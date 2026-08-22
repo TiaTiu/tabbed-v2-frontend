@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
+const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
 
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
@@ -31,6 +31,8 @@ export default function App() {
   
   const [activeReceiptId, setActiveReceiptId] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [isSharedView, setIsSharedView] = useState(false);
+
   const [copied, setCopied] = useState(false);
   const [modalImage, setModalImage] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -67,18 +69,27 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const eventParam = params.get('event');
     const viewParam = params.get('view');
+    const sharedParam = params.get('shared');
     
+    if (sharedParam === 'true') {
+      setIsSharedView(true);
+      setCurrentView('summary');
+    } else if (viewParam) {
+      setCurrentView(viewParam);
+    }
+
     if (eventParam) {
       setCurrentEventId(parseInt(eventParam, 10));
-      if (viewParam) setCurrentView(viewParam);
     }
     
-    fetch(`${API_URL}/events/?owner_token=${userToken}`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setEvents(data);
-      })
-      .catch(console.error);
+    if (sharedParam !== 'true') {
+      fetch(`${API_URL}/events/?owner_token=${userToken}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setEvents(data);
+        })
+        .catch(console.error);
+    }
   }, [userToken]);
 
   useEffect(() => {
@@ -86,10 +97,10 @@ export default function App() {
       fetchEventDetails(currentEventId);
       fetchSettlement(currentEventId);
       
-      const newUrl = `${window.location.pathname}?event=${currentEventId}&view=${currentView}`;
+      const newUrl = `${window.location.pathname}?event=${currentEventId}&view=${currentView}${isSharedView ? '&shared=true' : ''}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
-  }, [currentEventId, currentView]);
+  }, [currentEventId, currentView, isSharedView]);
 
   const fetchEventDetails = async (id) => {
     try {
@@ -503,7 +514,7 @@ export default function App() {
   };
 
   const handleShareLink = () => {
-    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
+    const url = `${window.location.origin}/?event=${currentEventId}&view=summary&shared=true`;
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(url).then(showCopiedToast).catch(() => fallbackCopyTextToClipboard(url));
     } else {
@@ -515,8 +526,8 @@ export default function App() {
     if (isSharing) return;
     setIsSharing(true);
 
-    const summaryElement = document.getElementById('share-image-target');
-    const url = `${window.location.origin}/?event=${currentEventId}&view=summary`;
+    const summaryElement = document.getElementById('share-image-wrapper');
+    const url = `${window.location.origin}/?event=${currentEventId}&view=summary&shared=true`;
     const baseText = `Hi! Here is the bill splitting summary for ${eventData?.name || 'our event'}. You can check the complete details here:\n\n${url}`;
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -640,60 +651,63 @@ export default function App() {
         </div>
       )}
 
+      {/* OFF-SCREEN RENDER TARGET WITH SLEEK WRAPPER */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        <div id="share-image-target" className="w-[420px] bg-white p-8 rounded-3xl space-y-6">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-black text-black tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
-            <p className="text-sm text-neutral-500 font-medium mt-1">Total Spending & Settlements</p>
-          </div>
-
-          <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-              <Users className="w-4 h-4 text-black"/> Total Spending
-            </h3>
-            <div className="space-y-4">
-              {settlement?.participant_breakdown?.map((p, idx) => (
-                <div key={idx} className="flex items-center justify-between pb-4 border-b border-neutral-100 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-bold text-neutral-900">{p.name}</span>
-                  </div>
-                  <span className="font-bold text-black">{formatIDR(p.total_spent)}</span>
-                </div>
-              ))}
+        <div id="share-image-wrapper" className="bg-neutral-100 p-8 flex items-center justify-center w-[484px]">
+          <div className="w-[420px] bg-white p-8 rounded-[32px] space-y-6 border border-neutral-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-black text-black tracking-tight">{eventData?.name || 'Bill Summary'}</h2>
+              <p className="text-sm text-neutral-500 font-medium mt-1">Total Spending & Settlements</p>
             </div>
-          </div>
 
-          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
-            </h3>
-            <div className="space-y-3">
-              {settlement?.settlements?.length > 0 ? (
-                settlement.settlements.map((s, index) => (
-                  <div key={index} className="bg-white border border-neutral-200 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800 shadow-sm">
-                    <div className="flex items-center gap-2 font-bold">
-                      <span className="text-black">{s.from}</span>
-                      <ArrowRight className="w-4 h-4 text-neutral-400"/>
-                      <span className="text-black">{s.to}</span>
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4 text-black"/> Total Spending
+              </h3>
+              <div className="space-y-4">
+                {settlement?.participant_breakdown?.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between pb-4 border-b border-neutral-100 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-bold text-neutral-900">{p.name}</span>
                     </div>
-                    <span className="font-bold text-black bg-neutral-100 px-3 py-1 rounded-lg">
-                      {formatIDR(s.amount)}
-                    </span>
+                    <span className="font-bold text-black">{formatIDR(p.total_spent)}</span>
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-neutral-500 italic font-medium">No transfers required.</p>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-          
-          <div className="text-center pt-4 pb-2">
-            <span className="text-sm font-medium text-neutral-400">
-              Tabbed by <strong className="text-black font-semibold tracking-tight text-xl ml-1">Tiara</strong>
-            </span>
+
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
+              </h3>
+              <div className="space-y-3">
+                {settlement?.settlements?.length > 0 ? (
+                  settlement.settlements.map((s, index) => (
+                    <div key={index} className="bg-white border border-neutral-200 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800 shadow-sm">
+                      <div className="flex items-center gap-2 font-bold">
+                        <span className="text-black">{s.from}</span>
+                        <ArrowRight className="w-4 h-4 text-neutral-400"/>
+                        <span className="text-black">{s.to}</span>
+                      </div>
+                      <span className="font-bold text-black bg-neutral-100 px-3 py-1 rounded-lg">
+                        {formatIDR(s.amount)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-neutral-500 italic font-medium">No transfers required.</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="text-center pt-4 pb-2">
+              <span className="text-sm font-medium text-neutral-400">
+                Tabbed by <strong className="text-black font-semibold tracking-tight text-xl ml-1">Tiara</strong>
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -723,10 +737,15 @@ export default function App() {
             <div className="bg-black text-white p-2 rounded-lg shadow-sm">
               <Receipt className="w-5 h-5"/>
             </div>
-            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 cursor-pointer" onClick={() => {setCurrentEventId(null); setCurrentView('dashboard');}}>Tabbed</h1>
+            <h1 
+              className={`text-xl font-semibold tracking-tight text-neutral-900 ${isSharedView ? '' : 'cursor-pointer'}`} 
+              onClick={() => { if (!isSharedView) { setCurrentEventId(null); setCurrentView('dashboard'); } }}
+            >
+              Tabbed
+            </h1>
           </div>
           
-          {eventData && currentView === 'summary' && (
+          {eventData && currentView === 'summary' && !isSharedView && (
             <button 
               onClick={handleOpenShareModal}
               disabled={isSharing}
@@ -737,7 +756,8 @@ export default function App() {
           )}
         </div>
 
-        {currentEventId && (
+        {/* HIDE DASHBOARD/SUMMARY TOGGLE IF SHARED VIEW */}
+        {currentEventId && !isSharedView && (
           <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-auto justify-center">
             <button
               onClick={() => { setCurrentView('dashboard'); setActiveReceiptId(null); }}
@@ -764,7 +784,7 @@ export default function App() {
               Event: <span className="text-black font-semibold">{eventData?.name}</span>
             </div>
             
-            {currentView === 'summary' && (
+            {currentView === 'summary' && !isSharedView && (
               <button 
                 onClick={handleOpenShareModal}
                 disabled={isSharing}
@@ -777,136 +797,139 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+      <main className={`flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 grid grid-cols-1 ${isSharedView ? '' : 'md:grid-cols-3'} gap-8`}>
         
-        <div className="space-y-6">
-          {activeReceipt ? (
-            <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs sticky top-24 space-y-3">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-black"/> Original Receipt
-                </span>
-                {activeReceipt.image_url && (
-                  <button
-                    onClick={() => setModalImage(activeReceipt.image_url)}
-                    className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200"
-                  >
-                    Open <ExternalLink className="w-3 h-3"/>
-                  </button>
-                )}
-              </div>
+        {/* HIDE SIDEBAR IN SHARED VIEW */}
+        {!isSharedView && (
+          <div className="space-y-6">
+            {activeReceipt ? (
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs sticky top-24 space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5 text-black"/> Original Receipt
+                  </span>
+                  {activeReceipt.image_url && (
+                    <button
+                      onClick={() => setModalImage(activeReceipt.image_url)}
+                      className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200"
+                    >
+                      Open <ExternalLink className="w-3 h-3"/>
+                    </button>
+                  )}
+                </div>
 
-              {activeReceipt.image_url ? (
-                <div 
-                  onClick={() => setModalImage(activeReceipt.image_url)}
-                  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 max-h-[65vh] overflow-y-auto cursor-pointer group relative"
-                >
-                  <img
-                    src={activeReceipt.image_url}
-                    alt={activeReceipt.title}
-                    className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
-                  />
-                </div>
-              ) : (
-                <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
-                  No image photo available
-                </div>
-              )}
-            </div>
-          ) : currentView === 'summary' && currentEventId ? (
-            <div className="space-y-4 sticky top-24">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-black"/> Event Photos
-              </h2>
-              <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
-                {eventData?.receipts?.filter(r => r.image_url).length > 0 ? (
-                  eventData.receipts.map(r => r.image_url && (
-                    <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
-                      <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
-                        <span className="text-xs font-bold text-black">{r.title}</span>
-                        <button
-                          onClick={() => setModalImage(r.image_url)}
-                          className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200"
-                        >
-                          Open <ExternalLink className="w-3 h-3"/>
-                        </button>
-                      </div>
-                      <div 
-                        onClick={() => setModalImage(r.image_url)}
-                        className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group"
-                      >
-                        <img
-                          src={r.image_url}
-                          alt={r.title}
-                          className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
-                        />
-                      </div>
-                    </div>
-                  ))
+                {activeReceipt.image_url ? (
+                  <div 
+                    onClick={() => setModalImage(activeReceipt.image_url)}
+                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 max-h-[65vh] overflow-y-auto cursor-pointer group relative"
+                  >
+                    <img
+                      src={activeReceipt.image_url}
+                      alt={activeReceipt.title}
+                      className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
+                    />
+                  </div>
                 ) : (
                   <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
-                    No receipt photos available.
+                    No image photo available
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <>
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
+            ) : currentView === 'summary' && currentEventId ? (
+              <div className="space-y-4 sticky top-24">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-black"/> New Event
+                  <Receipt className="w-4 h-4 text-black"/> Event Photos
                 </h2>
-                <form onSubmit={handleCreateEvent} className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="e.g., Weekend Trip, Dinner"
-                    value={newEventName}
-                    onChange={(e) => setNewEventName(e.target.value)}
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full bg-black hover:bg-neutral-800 text-white font-medium py-2.5 rounded-xl transition-all shadow-sm text-sm"
-                  >
-                    Create Event
-                  </button>
-                </form>
-              </div>
-
-              {Array.isArray(events) && events.length > 0 && (
-                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Events</h3>
-                  <div className="space-y-1.5">
-                    {events.map((ev) => (
-                      <div key={ev.id} className={`flex items-center justify-between rounded-xl transition-all border ${currentEventId === ev.id ? 'bg-neutral-900 text-white shadow-xs border-transparent' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-100'}`}>
-                        <button
-                          onClick={() => {
-                            setCurrentEventId(ev.id);
-                            setActiveReceiptId(null);
-                            setCurrentView('dashboard');
-                          }}
-                          className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
+                <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
+                  {eventData?.receipts?.filter(r => r.image_url).length > 0 ? (
+                    eventData.receipts.map(r => r.image_url && (
+                      <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
+                        <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
+                          <span className="text-xs font-bold text-black">{r.title}</span>
+                          <button
+                            onClick={() => setModalImage(r.image_url)}
+                            className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200"
+                          >
+                            Open <ExternalLink className="w-3 h-3"/>
+                          </button>
+                        </div>
+                        <div 
+                          onClick={() => setModalImage(r.image_url)}
+                          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group"
                         >
-                          <span className="truncate pr-2">{ev.name}</span>
-                          <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteEvent(e, ev.id)}
-                          className={`px-3 py-3 transition-colors ${currentEventId === ev.id ? 'text-neutral-400 hover:text-red-400' : 'text-neutral-400 hover:text-red-600'}`}
-                          title="Delete Event"
-                        >
-                          <Trash2 className="w-4 h-4"/>
-                        </button>
+                          <img
+                            src={r.image_url}
+                            alt={r.title}
+                            className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
+                          />
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  ) : (
+                    <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
+                      No receipt photos available.
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </div>
+            ) : (
+              <>
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-black"/> New Event
+                  </h2>
+                  <form onSubmit={handleCreateEvent} className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="e.g., Weekend Trip, Dinner"
+                      value={newEventName}
+                      onChange={(e) => setNewEventName(e.target.value)}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-black transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full bg-black hover:bg-neutral-800 text-white font-medium py-2.5 rounded-xl transition-all shadow-sm text-sm"
+                    >
+                      Create Event
+                    </button>
+                  </form>
+                </div>
 
-        <div className="md:col-span-2 space-y-6">
+                {Array.isArray(events) && events.length > 0 && (
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Events</h3>
+                    <div className="space-y-1.5">
+                      {events.map((ev) => (
+                        <div key={ev.id} className={`flex items-center justify-between rounded-xl transition-all border ${currentEventId === ev.id ? 'bg-neutral-900 text-white shadow-xs border-transparent' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-100'}`}>
+                          <button
+                            onClick={() => {
+                              setCurrentEventId(ev.id);
+                              setActiveReceiptId(null);
+                              setCurrentView('dashboard');
+                            }}
+                            className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
+                          >
+                            <span className="truncate pr-2">{ev.name}</span>
+                            <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteEvent(e, ev.id)}
+                            className={`px-3 py-3 transition-colors ${currentEventId === ev.id ? 'text-neutral-400 hover:text-red-400' : 'text-neutral-400 hover:text-red-600'}`}
+                            title="Delete Event"
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        <div className={`${isSharedView ? '' : 'md:col-span-2'} space-y-6`}>
           {!currentEventId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-black mb-4 shadow-xs">
@@ -916,7 +939,20 @@ export default function App() {
               <p className="text-sm text-neutral-500 max-w-sm">Create a new event on the left or select an existing one.</p>
             </div>
           ) : currentView === 'summary' ? (
-            <div id="receipt-summary-card" className="space-y-6 bg-white p-2 sm:p-4 rounded-3xl">
+            <div id="receipt-summary-card" className={`space-y-6 bg-white rounded-3xl ${isSharedView ? 'max-w-4xl mx-auto' : 'p-2 sm:p-4'}`}>
+              
+              {isSharedView && (
+                <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-md flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name} - Final Bill</h2>
+                    <p className="text-sm text-neutral-400 mt-1">Here is the breakdown of what everyone owes.</p>
+                  </div>
+                  <div className="hidden sm:block">
+                    <Receipt className="w-10 h-10 text-neutral-500 opacity-50"/>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                 <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
                 <div className="space-y-6">
