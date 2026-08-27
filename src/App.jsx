@@ -97,6 +97,7 @@ export default function App() {
   useEffect(() => {
     if (currentEventId) {
       setIsLoadingEvent(true);
+      // Fetch concurrently without blocking the initial layout render
       Promise.all([
         fetchEventDetails(currentEventId),
         fetchSettlement(currentEventId)
@@ -1042,13 +1043,7 @@ export default function App() {
         )}
 
         <div className={`${isSharedView ? '' : 'md:col-span-2'} space-y-6`}>
-          {currentEventId && (!eventData || isLoadingEvent) ? (
-            <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
-              <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full mb-4"></div>
-              <h3 className="text-base font-semibold text-neutral-900 mb-1">Loading Event...</h3>
-              <p className="text-sm text-neutral-500">Fetching latest receipts and calculations.</p>
-            </div>
-          ) : !currentEventId ? (
+          {!currentEventId ? (
             <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
               <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-black mb-4 shadow-xs">
                 <Receipt className="w-6 h-6"/>
@@ -1062,7 +1057,7 @@ export default function App() {
               {isSharedView && (
                 <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-md flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name} - Final Bill</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name || 'Loading Event...'}</h2>
                     <p className="text-sm text-neutral-400 mt-1">Here is the breakdown of what everyone owes.</p>
                   </div>
                   <div className="hidden sm:block">
@@ -1071,140 +1066,151 @@ export default function App() {
                 </div>
               )}
 
-              {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
-                <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-black"/> Attached Receipts
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {eventData.receipts.map(r => r.image_url && (
-                      <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
-                        <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
-                          <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
-                          <ExternalLink className="w-3 h-3 text-neutral-400" />
-                        </div>
-                        <div className="flex-1 flex items-center justify-center p-2">
-                          <img src={r.image_url} alt={r.title} loading="lazy" decoding="async" className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {/* NON-BLOCKING SKELETON OR CONTENT */}
+              {isLoadingEvent && !eventData ? (
+                <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full mb-4"></div>
+                  <h3 className="text-base font-semibold text-neutral-900 mb-1">Waking up server & loading bill...</h3>
+                  <p className="text-sm text-neutral-500">This will only take a moment.</p>
                 </div>
-              )}
-
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
-                <div className="space-y-6">
-                  {settlement?.participant_breakdown?.map((p, idx) => {
-                    const groupedItems = [];
-                    let currentTitle = "Other Items";
-                    
-                    (p.items || []).forEach(item => {
-                        const matchedReceipt = eventData?.receipts?.find(r => 
-                            r.items?.some(ri => ri.name === item.name)
-                        );
-                        
-                        if (matchedReceipt) {
-                            currentTitle = matchedReceipt.title;
-                        }
-                        
-                        let group = groupedItems.find(g => g.title === currentTitle);
-                        if (!group) {
-                            group = { title: currentTitle, items: [] };
-                            groupedItems.push(group);
-                        }
-                        group.items.push(item);
-                    });
-
-                    return (
-                      <div key={idx} className="bg-neutral-50 border border-neutral-200 p-5 rounded-2xl space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">
-                              {p.name.charAt(0).toUpperCase()}
+              ) : (
+                <>
+                  {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-black"/> Attached Receipts
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {eventData.receipts.map(r => r.image_url && (
+                          <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
+                            <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
+                              <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
+                              <ExternalLink className="w-3 h-3 text-neutral-400" />
                             </div>
-                            <span className="font-bold text-lg text-black">{p.name}</span>
+                            <div className="flex-1 flex items-center justify-center p-2">
+                              <img src={r.image_url} alt={r.title} loading="lazy" decoding="async" className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
+                            </div>
                           </div>
-                          <span className="font-bold text-lg text-black whitespace-nowrap shrink-0">{formatIDR(p.total_spent)}</span>
-                        </div>
-
-                        <div className="space-y-5">
-                          {groupedItems.map((group, gIdx) => (
-                            <div key={gIdx} className="space-y-1">
-                              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-200/60 pb-1.5 mb-2">{group.title}</p>
-                              {group.items.map((item, iIdx) => {
-                                const displayName = item.name ? item.name.replace(' (Proportional)', '') : '';
-                                return (
-                                  <div key={iIdx} className="flex justify-between items-start text-sm py-1.5 gap-4">
-                                    <div className="flex items-center flex-wrap gap-2">
-                                      <span className="text-neutral-700 leading-snug">{displayName}</span>
-                                      {item.quantity > 1 && (
-                                        <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
-                                          x{item.quantity}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0 text-right">
-                                      {formatNumberOnly(item.price)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(!settlement?.participant_breakdown || settlement.participant_breakdown.length === 0) && (
-                    <p className="text-sm text-neutral-500 italic">No items assigned yet.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-black"/> Calculation Summary
-                </h3>
-                <div className="space-y-3">
-                  {settlement?.participant_breakdown?.map((p, idx) => (
-                    <div key={idx} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
-                      <span className="font-bold text-black">{p.name}</span>
-                      <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
-                        <span className="text-neutral-600">Paid: <strong className="text-black">{formatIDR(p.total_paid)}</strong></span>
-                        <span className="text-neutral-600">Spent: <strong className="text-black">{formatIDR(p.total_spent)}</strong></span>
-                        <span className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap shrink-0 ${p.net_balance >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                          Net: {formatIDR(p.net_balance)}
-                        </span>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
-                </h3>
-                <div className="space-y-2">
-                  {settlement?.settlements?.length > 0 ? (
-                    settlement.settlements.map((s, index) => (
-                      <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span className="text-black font-semibold">{s.from}</span>
-                          <ArrowRight className="w-4 h-4 text-neutral-400"/>
-                          <span className="text-black font-semibold">{s.to}</span>
-                        </div>
-                        <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 whitespace-nowrap shrink-0">
-                          {formatIDR(s.amount)}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-neutral-400 italic">No transfers required.</p>
                   )}
-                </div>
-              </div>
+
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                    <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
+                    <div className="space-y-6">
+                      {settlement?.participant_breakdown?.map((p, idx) => {
+                        const groupedItems = [];
+                        let currentTitle = "Other Items";
+                        
+                        (p.items || []).forEach(item => {
+                            const matchedReceipt = eventData?.receipts?.find(r => 
+                                r.items?.some(ri => ri.name === item.name)
+                            );
+                            
+                            if (matchedReceipt) {
+                                currentTitle = matchedReceipt.title;
+                            }
+                            
+                            let group = groupedItems.find(g => g.title === currentTitle);
+                            if (!group) {
+                                group = { title: currentTitle, items: [] };
+                                groupedItems.push(group);
+                            }
+                            group.items.push(item);
+                        });
+
+                        return (
+                          <div key={idx} className="bg-neutral-50 border border-neutral-200 p-5 rounded-2xl space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">
+                                  {p.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="font-bold text-lg text-black">{p.name}</span>
+                              </div>
+                              <span className="font-bold text-lg text-black whitespace-nowrap shrink-0">{formatIDR(p.total_spent)}</span>
+                            </div>
+
+                            <div className="space-y-5">
+                              {groupedItems.map((group, gIdx) => (
+                                <div key={gIdx} className="space-y-1">
+                                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-200/60 pb-1.5 mb-2">{group.title}</p>
+                                  {group.items.map((item, iIdx) => {
+                                    const displayName = item.name ? item.name.replace(' (Proportional)', '') : '';
+                                    return (
+                                      <div key={iIdx} className="flex justify-between items-start text-sm py-1.5 gap-4">
+                                        <div className="flex items-center flex-wrap gap-2">
+                                          <span className="text-neutral-700 leading-snug">{displayName}</span>
+                                          {item.quantity > 1 && (
+                                            <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
+                                              x{item.quantity}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="font-medium text-neutral-900 whitespace-nowrap shrink-0 text-right">
+                                          {formatNumberOnly(item.price)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {(!settlement?.participant_breakdown || settlement.participant_breakdown.length === 0) && (
+                        <p className="text-sm text-neutral-500 italic">No items assigned yet.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-black"/> Calculation Summary
+                    </h3>
+                    <div className="space-y-3">
+                      {settlement?.participant_breakdown?.map((p, idx) => (
+                        <div key={idx} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
+                          <span className="font-bold text-black">{p.name}</span>
+                          <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+                            <span className="text-neutral-600">Paid: <strong className="text-black">{formatIDR(p.total_paid)}</strong></span>
+                            <span className="text-neutral-600">Spent: <strong className="text-black">{formatIDR(p.total_spent)}</strong></span>
+                            <span className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap shrink-0 ${p.net_balance >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                              Net: {formatIDR(p.net_balance)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-black"/> Recommended Settlements
+                    </h3>
+                    <div className="space-y-2">
+                      {settlement?.settlements?.length > 0 ? (
+                        settlement.settlements.map((s, index) => (
+                          <div key={index} className="bg-neutral-50 border border-neutral-200/60 px-4 py-3 rounded-xl text-sm flex items-center justify-between text-neutral-800">
+                            <div className="flex items-center gap-2 font-medium">
+                              <span className="text-black font-semibold">{s.from}</span>
+                              <ArrowRight className="w-4 h-4 text-neutral-400"/>
+                              <span className="text-black font-semibold">{s.to}</span>
+                            </div>
+                            <span className="font-semibold text-black bg-white px-3 py-1 rounded-lg border border-neutral-200 whitespace-nowrap shrink-0">
+                              {formatIDR(s.amount)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-neutral-400 italic">No transfers required.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : activeReceipt ? (
             <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
