@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy, Scissors } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
+const API_URL = "[https://tabbed-v2-backend-production.up.railway.app/](https://tabbed-v2-backend-production.up.railway.app/)";
 
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
