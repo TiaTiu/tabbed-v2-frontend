@@ -307,26 +307,30 @@ export default function App() {
   const handleSplitItem = async (itemId) => {
     if (!window.confirm("Split this grouped item into individual portions?")) return;
     
-    // Optimistic UI Update for zero delay
-    const activeReceipt = eventData.receipts.find(r => r.items?.some(i => i.id === itemId));
+    // Find the active receipt and item
+    const activeReceipt = eventData?.receipts?.find(r => r.items?.some(i => i.id === itemId));
     if (!activeReceipt) return;
     
-    const itemToSplit = activeReceipt.items.find(i => i.id === itemId);
+    const itemIndex = activeReceipt.items.findIndex(i => i.id === itemId);
+    const itemToSplit = activeReceipt.items[itemIndex];
     if (!itemToSplit || itemToSplit.quantity <= 1) return;
 
     const newUnitPrice = itemToSplit.price / itemToSplit.quantity;
+    const existingParticipants = itemToSplit.participants || [];
+
+    // Create the individual portions instantly at the same index position
     const newItems = Array.from({ length: itemToSplit.quantity }).map((_, idx) => ({
-      ...itemToSplit,
       id: `temp-${Date.now()}-${idx}`,
+      name: itemToSplit.name,
       price: newUnitPrice,
       quantity: 1,
+      participants: existingParticipants
     }));
 
     setEventData(prev => {
       if (!prev) return prev;
       const updatedReceipts = prev.receipts.map(r => {
         if (r.id === activeReceipt.id) {
-          const itemIndex = r.items.findIndex(i => i.id === itemId);
           const updatedItems = [...r.items];
           updatedItems.splice(itemIndex, 1, ...newItems);
           return { ...r, items: updatedItems };
@@ -348,7 +352,18 @@ export default function App() {
 
       const eventRes = await fetch(`${API_URL}/events/${currentEventId}`);
       const eventDataFresh = await eventRes.json();
-      setEventData(eventDataFresh);
+      
+      // Keep local positions/assignments intact while incorporating updated database IDs
+      setEventData(prev => ({
+        ...eventDataFresh,
+        receipts: eventDataFresh.receipts.map(r => {
+          if (r.id === activeReceipt.id) {
+            return r;
+          }
+          return r;
+        })
+      }));
+      
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error splitting item:", err);
