@@ -97,7 +97,6 @@ export default function App() {
   useEffect(() => {
     if (currentEventId) {
       setIsLoadingEvent(true);
-      // Fetch concurrently without blocking the initial layout render
       Promise.all([
         fetchEventDetails(currentEventId),
         fetchSettlement(currentEventId)
@@ -1057,7 +1056,7 @@ export default function App() {
               {isSharedView && (
                 <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-md flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name || 'Loading Event...'}</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name || 'Final Bill'}</h2>
                     <p className="text-sm text-neutral-400 mt-1">Here is the breakdown of what everyone owes.</p>
                   </div>
                   <div className="hidden sm:block">
@@ -1066,12 +1065,11 @@ export default function App() {
                 </div>
               )}
 
-              {/* NON-BLOCKING SKELETON OR CONTENT */}
               {isLoadingEvent && !eventData ? (
                 <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
                   <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full mb-4"></div>
-                  <h3 className="text-base font-semibold text-neutral-900 mb-1">Waking up server & loading bill...</h3>
-                  <p className="text-sm text-neutral-500">This will only take a moment.</p>
+                  <h3 className="text-base font-semibold text-neutral-900 mb-1">Loading Summary...</h3>
+                  <p className="text-sm text-neutral-500">Please wait a moment.</p>
                 </div>
               ) : (
                 <>
