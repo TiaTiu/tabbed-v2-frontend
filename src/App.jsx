@@ -307,7 +307,6 @@ export default function App() {
   const handleSplitItem = async (itemId) => {
     if (!window.confirm("Split this grouped item into individual portions?")) return;
     
-    // Find the active receipt and item
     const activeReceipt = eventData?.receipts?.find(r => r.items?.some(i => i.id === itemId));
     if (!activeReceipt) return;
     
@@ -317,15 +316,19 @@ export default function App() {
 
     const newUnitPrice = itemToSplit.price / itemToSplit.quantity;
     const existingParticipants = itemToSplit.participants || [];
+    const existingParticipantIds = existingParticipants.map(p => p.id);
 
-    // Create the individual portions instantly at the same index position
-    const newItems = Array.from({ length: itemToSplit.quantity }).map((_, idx) => ({
-      id: `temp-${Date.now()}-${idx}`,
-      name: itemToSplit.name,
-      price: newUnitPrice,
-      quantity: 1,
-      participants: existingParticipants
-    }));
+    const newItems = Array.from({ length: itemToSplit.quantity }).map((_, idx) => {
+      const newTempId = `temp-${Date.now()}-${idx}`;
+      assignmentsRef.current[newTempId] = [...existingParticipantIds];
+      return {
+        id: newTempId,
+        name: itemToSplit.name,
+        price: newUnitPrice,
+        quantity: 1,
+        participants: existingParticipants
+      };
+    });
 
     setEventData(prev => {
       if (!prev) return prev;
@@ -350,20 +353,6 @@ export default function App() {
         throw new Error(errorData.detail || "Server failed to split item");
       }
 
-      const eventRes = await fetch(`${API_URL}/events/${currentEventId}`);
-      const eventDataFresh = await eventRes.json();
-      
-      // Keep local positions/assignments intact while incorporating updated database IDs
-      setEventData(prev => ({
-        ...eventDataFresh,
-        receipts: eventDataFresh.receipts.map(r => {
-          if (r.id === activeReceipt.id) {
-            return r;
-          }
-          return r;
-        })
-      }));
-      
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error splitting item:", err);
