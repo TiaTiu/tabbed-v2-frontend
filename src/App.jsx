@@ -1005,7 +1005,7 @@ export default function App() {
                             className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                           >
                             <span className="truncate pr-2">{ev.name}</span>
-                            <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
+                            <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
                           </button>
                           <button
                             onClick={(e) => handleDeleteEvent(e, ev.id)}
