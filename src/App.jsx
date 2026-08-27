@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy } from 'lucide-react';
+import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy, Scissors } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
@@ -303,6 +303,30 @@ export default function App() {
       e.target.value = null;
     }
   };
+
+  // --- NEW: Split Item Function ---
+  const handleSplitItem = async (itemId) => {
+    if (!window.confirm("Split this grouped item into individual portions?")) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/items/${itemId}/split`, {
+        method: "POST",
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Server failed to split item");
+      }
+
+      // Refresh the event data and settlements to reflect the newly split rows
+      await fetchEventDetails(currentEventId);
+      await fetchSettlement(currentEventId);
+    } catch (err) {
+      console.error("Error splitting item:", err);
+      alert(`Failed to split item: ${err.message}`);
+    }
+  };
+  // ---------------------------------
 
   const handleToggleParticipant = (item, participantId) => {
     const currentIds = assignmentsRef.current[item.id] !== undefined
@@ -1109,12 +1133,23 @@ export default function App() {
                 {activeReceipt.items?.map((item) => (
                   <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex-1 flex items-center gap-2">
+                      
+                      {/* UPDATED: Split Feature UI integration */}
+                      <div className="flex-1 flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
-                          <span className="bg-neutral-100 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
-                            x{item.quantity}
-                          </span>
+                          <div className="flex items-center gap-1.5 ml-1">
+                            <span className="bg-neutral-100 border border-neutral-200 text-neutral-600 text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap">
+                              x{item.quantity}
+                            </span>
+                            <button
+                              onClick={() => handleSplitItem(item.id)}
+                              className="bg-black hover:bg-neutral-800 text-white text-[10px] px-2 py-1 rounded-md font-bold transition-all shadow-sm flex items-center gap-1"
+                              title="Split into individual items"
+                            >
+                              <Scissors className="w-3 h-3"/> Split
+                            </button>
+                          </div>
                         )}
                       </div>
                       
@@ -1244,6 +1279,12 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6">
+
+              {currentEventId && eventData && (
+                <div className="bg-white border border-neutral-200 rounded-xl px-5 py-3.5 shadow-sm mb-2">
+                  <h2 className="text-lg font-bold tracking-tight text-neutral-900">{eventData.name}</h2>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
