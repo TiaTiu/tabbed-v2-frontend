@@ -29,6 +29,7 @@ export default function App() {
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [splittingItemId, setSplittingItemId] = useState(null);
   
   const [activeReceiptId, setActiveReceiptId] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
@@ -306,58 +307,72 @@ export default function App() {
 
   const handleSplitItem = async (itemId) => {
     if (!window.confirm("Split this grouped item into individual portions?")) return;
-    
+
     const activeReceipt = eventData?.receipts?.find(r => r.items?.some(i => i.id === itemId));
     if (!activeReceipt) return;
-    
-    const itemIndex = activeReceipt.items.findIndex(i => i.id === itemId);
-    const itemToSplit = activeReceipt.items[itemIndex];
-    if (!itemToSplit || itemToSplit.quantity <= 1) return;
 
-    const newUnitPrice = itemToSplit.price / itemToSplit.quantity;
-    const existingParticipants = itemToSplit.participants || [];
-    const existingParticipantIds = existingParticipants.map(p => p.id);
-
-    const newItems = Array.from({ length: itemToSplit.quantity }).map((_, idx) => {
-      const newTempId = `temp-${Date.now()}-${idx}`;
-      assignmentsRef.current[newTempId] = [...existingParticipantIds];
-      return {
-        id: newTempId,
-        name: itemToSplit.name,
-        price: newUnitPrice,
-        quantity: 1,
-        participants: existingParticipants
-      };
-    });
-
-    setEventData(prev => {
-      if (!prev) return prev;
-      const updatedReceipts = prev.receipts.map(r => {
-        if (r.id === activeReceipt.id) {
-          const updatedItems = [...r.items];
-          updatedItems.splice(itemIndex, 1, ...newItems);
-          return { ...r, items: updatedItems };
-        }
-        return r;
-      });
-      return { ...prev, receipts: updatedReceipts };
-    });
+    setSplittingItemId(itemId); // Show loading state
 
     try {
+      // 1. Tell backend to split the item (Creates REAL database IDs)
       const res = await fetch(`${API_URL}/items/${itemId}/split`, {
         method: "POST",
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.detail || "Server failed to split item");
       }
 
+      // 2. Fetch the fresh database state quietly
+      const eventRes = await fetch(`${API_URL}/events/${currentEventId}`);
+      const eventDataFresh = await eventRes.json();
+
+      // 3. Carefully merge the new real items into the exact array index position
+      setEventData(prev => {
+        if (!prev) return prev;
+        const freshReceipt = eventDataFresh.receipts.find(r => r.id === activeReceipt.id);
+        if (!freshReceipt) return eventDataFresh;
+
+        const oldItemIds = new Set(activeReceipt.items.map(i => i.id));
+        oldItemIds.delete(itemId); // The split item is gone
+
+        // Find the brand new items that just arrived from the database
+        const newItemsFromDb = freshReceipt.items.filter(i => !oldItemIds.has(i.id));
+        const retainedItems = freshReceipt.items.filter(i => oldItemIds.has(i.id));
+
+        // Sync local assignment tracker so instant-clicks work on new real IDs
+        newItemsFromDb.forEach(newItem => {
+          assignmentsRef.current[newItem.id] = newItem.participants?.map(p => p.id) || [];
+        });
+
+        // Rebuild the items array in the exact same order
+        const updatedItems = [];
+        activeReceipt.items.forEach(oldItem => {
+           if (oldItem.id === itemId) {
+              updatedItems.push(...newItemsFromDb);
+           } else {
+              const freshVersion = retainedItems.find(i => i.id === oldItem.id) || oldItem;
+              updatedItems.push(freshVersion);
+           }
+        });
+
+        const updatedReceipts = eventDataFresh.receipts.map(r => {
+           if (r.id === activeReceipt.id) {
+               return { ...freshReceipt, items: updatedItems };
+           }
+           return r;
+        });
+
+        return { ...eventDataFresh, receipts: updatedReceipts };
+      });
+
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error splitting item:", err);
       alert(`Failed to split item: ${err.message}`);
-      fetchEventDetails(currentEventId);
+    } finally {
+      setSplittingItemId(null);
     }
   };
 
@@ -1208,10 +1223,11 @@ export default function App() {
                             </span>
                             <button
                               onClick={() => handleSplitItem(item.id)}
-                              className="bg-black hover:bg-neutral-800 text-white text-[10px] px-2 py-1 rounded-md font-bold transition-all shadow-sm flex items-center gap-1"
+                              disabled={splittingItemId === item.id}
+                              className={`bg-black hover:bg-neutral-800 text-white text-[10px] px-2 py-1 rounded-md font-bold transition-all shadow-sm flex items-center gap-1 ${splittingItemId === item.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                               title="Split into individual items"
                             >
-                              <Scissors className="w-3 h-3"/> Split
+                              <Scissors className="w-3 h-3"/> {splittingItemId === item.id ? "Splitting..." : "Split"}
                             </button>
                           </div>
                         )}
