@@ -1065,11 +1065,10 @@ export default function App() {
                 </div>
               )}
 
+              {/* Minimal Silent Spinner */}
               {isLoadingEvent && !eventData ? (
-                <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
-                  <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full mb-4"></div>
-                  <h3 className="text-base font-semibold text-neutral-900 mb-1">Loading Summary...</h3>
-                  <p className="text-sm text-neutral-500">Please wait a moment.</p>
+                <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 flex items-center justify-center min-h-[300px]">
+                  <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-neutral-800 rounded-full"></div>
                 </div>
               ) : (
                 <>
@@ -1383,9 +1382,17 @@ export default function App() {
           ) : (
             <div className="space-y-6">
 
+              {/* CLEAN BLACK LABEL RESTORED HERE */}
               {currentEventId && eventData && (
-                <div className="bg-white border border-neutral-200 rounded-xl px-5 py-3.5 shadow-sm mb-2">
-                  <h2 className="text-lg font-bold tracking-tight text-neutral-900">{eventData.name}</h2>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-5 py-3.5 shadow-sm mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold tracking-tight text-white">{eventData.name}</h2>
+                  <button
+                    onClick={(e) => handleDeleteEvent(e, currentEventId)}
+                    className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Delete Event"
+                  >
+                    <Trash2 className="w-4 h-4"/>
+                  </button>
                 </div>
               )}
 
