@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, Receipt, DollarSign, Plus, ChevronRight, ArrowRight, ArrowLeft, FileText, LayoutDashboard, ExternalLink, Share2, Check, X, Trash2, AlertCircle, Copy, Scissors } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 
-const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
+const API_URL = "[https://tabbed-v2-backend-production.up.railway.app](https://tabbed-v2-backend-production.up.railway.app)";
 
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
@@ -304,10 +304,38 @@ export default function App() {
     }
   };
 
-  // --- NEW: Split Item Function ---
   const handleSplitItem = async (itemId) => {
     if (!window.confirm("Split this grouped item into individual portions?")) return;
     
+    // Optimistic UI Update for zero delay
+    const activeReceipt = eventData.receipts.find(r => r.items?.some(i => i.id === itemId));
+    if (!activeReceipt) return;
+    
+    const itemToSplit = activeReceipt.items.find(i => i.id === itemId);
+    if (!itemToSplit || itemToSplit.quantity <= 1) return;
+
+    const newUnitPrice = itemToSplit.price / itemToSplit.quantity;
+    const newItems = Array.from({ length: itemToSplit.quantity }).map((_, idx) => ({
+      ...itemToSplit,
+      id: `temp-${Date.now()}-${idx}`,
+      price: newUnitPrice,
+      quantity: 1,
+    }));
+
+    setEventData(prev => {
+      if (!prev) return prev;
+      const updatedReceipts = prev.receipts.map(r => {
+        if (r.id === activeReceipt.id) {
+          const itemIndex = r.items.findIndex(i => i.id === itemId);
+          const updatedItems = [...r.items];
+          updatedItems.splice(itemIndex, 1, ...newItems);
+          return { ...r, items: updatedItems };
+        }
+        return r;
+      });
+      return { ...prev, receipts: updatedReceipts };
+    });
+
     try {
       const res = await fetch(`${API_URL}/items/${itemId}/split`, {
         method: "POST",
@@ -318,15 +346,16 @@ export default function App() {
         throw new Error(errorData.detail || "Server failed to split item");
       }
 
-      // Refresh the event data and settlements to reflect the newly split rows
-      await fetchEventDetails(currentEventId);
-      await fetchSettlement(currentEventId);
+      const eventRes = await fetch(`${API_URL}/events/${currentEventId}`);
+      const eventDataFresh = await eventRes.json();
+      setEventData(eventDataFresh);
+      fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error splitting item:", err);
       alert(`Failed to split item: ${err.message}`);
+      fetchEventDetails(currentEventId);
     }
   };
-  // ---------------------------------
 
   const handleToggleParticipant = (item, participantId) => {
     const currentIds = assignmentsRef.current[item.id] !== undefined
@@ -436,6 +465,23 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price: newPrice })
       });
+
+      const activeReceipt = eventData.receipts.find(r => r.id === activeReceiptId);
+      const simulatedItems = activeReceipt.items.map(i => i.id === itemId ? { ...i, price: newPrice } : i);
+      const simulatedReceipt = { ...activeReceipt, items: simulatedItems };
+      const newTotals = calculateReceiptTotals(simulatedReceipt);
+
+      await fetch(`${API_URL}/receipts/${activeReceiptId}/subtotal`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtotal: newTotals.subtotal })
+      });
+      await fetch(`${API_URL}/receipts/${activeReceiptId}/total_amount`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ total_amount: newTotals.total })
+      });
+
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error("Error updating item price:", err);
@@ -458,7 +504,11 @@ export default function App() {
 
   const handleBlurReceiptFee = async (field, rawValue) => {
     const cleanedValue = rawValue.replace(/[^0-9]/g, '');
-    const newVal = cleanedValue === "" ? 0 : parseFloat(cleanedValue);
+    let newVal = cleanedValue === "" ? 0 : parseFloat(cleanedValue);
+
+    if (field === 'discount' && newVal > 0) {
+      newVal = -newVal;
+    }
 
     try {
       await fetch(`${API_URL}/receipts/${activeReceiptId}/${field}`, {
@@ -466,6 +516,17 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: newVal })
       });
+
+      const activeReceipt = eventData.receipts.find(r => r.id === activeReceiptId);
+      const simulatedReceipt = { ...activeReceipt, [field]: newVal };
+      const newTotals = calculateReceiptTotals(simulatedReceipt);
+
+      await fetch(`${API_URL}/receipts/${activeReceiptId}/total_amount`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ total_amount: newTotals.total })
+      });
+
       fetchSettlement(currentEventId);
     } catch (err) {
       console.error(`Error updating receipt ${field}:`, err);
@@ -944,7 +1005,7 @@ export default function App() {
                             className="flex-1 text-left px-4 py-3 text-sm font-medium flex items-center justify-between"
                           >
                             <span className="truncate pr-2">{ev.name}</span>
-                            <ChevronRight className={`w-4 h-4 flex-shrink-0 ${currentEventId === ev.id ? 'text-white' : 'text-neutral-400'}`} />
+                            <ChevronRight ${currentEventId="==" 'text-neutral-400'}`} 'text-white' : ? className="{`w-4" ev.id flex-shrink-0 h-4/>
                           </button>
                           <button
                             onClick={(e) => handleDeleteEvent(e, ev.id)}
@@ -1134,7 +1195,6 @@ export default function App() {
                   <div key={item.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       
-                      {/* UPDATED: Split Feature UI integration */}
                       <div className="flex-1 flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-neutral-900">{item.name}</p>
                         {item.quantity > 1 && (
