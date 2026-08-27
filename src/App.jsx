@@ -934,6 +934,8 @@ export default function App() {
                     <img
                       src={activeReceipt.image_url}
                       alt={activeReceipt.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
                     />
                   </div>
@@ -968,6 +970,8 @@ export default function App() {
                           <img
                             src={r.image_url}
                             alt={r.title}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
                           />
                         </div>
@@ -1063,6 +1067,27 @@ export default function App() {
                   </div>
                   <div className="hidden sm:block">
                     <Receipt className="w-10 h-10 text-neutral-500 opacity-50"/>
+                  </div>
+                </div>
+              )}
+
+              {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-black"/> Attached Receipts
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {eventData.receipts.map(r => r.image_url && (
+                      <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
+                        <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
+                          <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
+                          <ExternalLink className="w-3 h-3 text-neutral-400" />
+                        </div>
+                        <div className="flex-1 flex items-center justify-center p-2">
+                          <img src={r.image_url} alt={r.title} loading="lazy" decoding="async" className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1180,27 +1205,6 @@ export default function App() {
                   )}
                 </div>
               </div>
-
-              {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
-                <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-black"/> Attached Receipts
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {eventData.receipts.map(r => r.image_url && (
-                      <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
-                        <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
-                          <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
-                          <ExternalLink className="w-3 h-3 text-neutral-400" />
-                        </div>
-                        <div className="flex-1 flex items-center justify-center p-2">
-                          <img src={r.image_url} alt={r.title} className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           ) : activeReceipt ? (
             <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
