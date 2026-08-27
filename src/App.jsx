@@ -311,10 +311,9 @@ export default function App() {
     const activeReceipt = eventData?.receipts?.find(r => r.items?.some(i => i.id === itemId));
     if (!activeReceipt) return;
 
-    setSplittingItemId(itemId); // Show loading state
+    setSplittingItemId(itemId); 
 
     try {
-      // 1. Tell backend to split the item (Creates REAL database IDs)
       const res = await fetch(`${API_URL}/items/${itemId}/split`, {
         method: "POST",
       });
@@ -324,29 +323,24 @@ export default function App() {
         throw new Error(errorData.detail || "Server failed to split item");
       }
 
-      // 2. Fetch the fresh database state quietly
       const eventRes = await fetch(`${API_URL}/events/${currentEventId}`);
       const eventDataFresh = await eventRes.json();
 
-      // 3. Carefully merge the new real items into the exact array index position
       setEventData(prev => {
         if (!prev) return prev;
         const freshReceipt = eventDataFresh.receipts.find(r => r.id === activeReceipt.id);
         if (!freshReceipt) return eventDataFresh;
 
         const oldItemIds = new Set(activeReceipt.items.map(i => i.id));
-        oldItemIds.delete(itemId); // The split item is gone
+        oldItemIds.delete(itemId); 
 
-        // Find the brand new items that just arrived from the database
         const newItemsFromDb = freshReceipt.items.filter(i => !oldItemIds.has(i.id));
         const retainedItems = freshReceipt.items.filter(i => oldItemIds.has(i.id));
 
-        // Sync local assignment tracker so instant-clicks work on new real IDs
         newItemsFromDb.forEach(newItem => {
           assignmentsRef.current[newItem.id] = newItem.participants?.map(p => p.id) || [];
         });
 
-        // Rebuild the items array in the exact same order
         const updatedItems = [];
         activeReceipt.items.forEach(oldItem => {
            if (oldItem.id === itemId) {
@@ -1186,6 +1180,27 @@ export default function App() {
                   )}
                 </div>
               </div>
+
+              {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-black"/> Attached Receipts
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {eventData.receipts.map(r => r.image_url && (
+                      <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
+                        <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
+                          <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
+                          <ExternalLink className="w-3 h-3 text-neutral-400" />
+                        </div>
+                        <div className="flex-1 flex items-center justify-center p-2">
+                          <img src={r.image_url} alt={r.title} className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : activeReceipt ? (
             <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
