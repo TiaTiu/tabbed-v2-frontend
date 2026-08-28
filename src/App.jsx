@@ -915,10 +915,10 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-4 pb-2 flex items-center justify-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mr-1">TABBED BY</span>
+            <div className="text-center pt-4 pb-2 flex items-center justify-center space-x-0">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mr-2">TABBED BY</span>
               {['T', 'I', 'A', 'R', 'A'].map((char, index) => (
-                <div key={index} className="w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                <div key={index} className="w-6 h-6 rounded-none first:rounded-l-full last:rounded-r-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs shadow-xs border-r border-neutral-800 last:border-r-0">
                   {char}
                 </div>
               ))}
