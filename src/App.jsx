@@ -685,6 +685,24 @@ export default function App() {
     }
   };
 
+  // --- NEW LAZY FETCHING FUNCTION ---
+  const handleOpenImage = async (receiptId) => {
+    setModalImage("loading");
+    try {
+      const res = await fetch(`${API_URL}/receipts/${receiptId}/image`);
+      const data = await res.json();
+      if (res.ok && data.image_url) {
+        setModalImage(data.image_url);
+      } else {
+        throw new Error(data.detail || "Image not found");
+      }
+    } catch (err) {
+      console.error("Error loading image:", err);
+      setModalImage(null);
+      alert("Failed to load image from server.");
+    }
+  };
+
   const isReadyForSummary = (() => {
     if (!eventData?.receipts || eventData.receipts.length === 0) return false;
     let ready = true;
@@ -840,8 +858,17 @@ export default function App() {
                 <X className="w-4 h-4"/>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[80vh] bg-neutral-50 flex justify-center">
-              <img src={modalImage} alt="Receipt Preview Full" className="w-full max-w-lg h-auto object-contain rounded-xl border border-neutral-200 shadow-sm bg-white" />
+            
+            {/* UPDATED LOADING SPINNER FOR LAZY IMAGE */}
+            <div className="p-6 overflow-y-auto max-h-[80vh] bg-neutral-50 flex justify-center items-center min-h-[300px]">
+              {modalImage === "loading" ? (
+                <div className="flex flex-col items-center gap-3">
+                   <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-neutral-800 rounded-full"></div>
+                   <p className="text-sm text-neutral-500 font-medium">Downloading receipt photo...</p>
+                </div>
+              ) : (
+                <img src={modalImage} alt="Receipt Preview Full" className="w-full max-w-lg h-auto object-contain rounded-xl border border-neutral-200 shadow-sm bg-white" />
+              )}
             </div>
           </div>
         </div>
@@ -916,9 +943,9 @@ export default function App() {
                   <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
                     <Receipt className="w-3.5 h-3.5 text-black"/> Original Receipt
                   </span>
-                  {activeReceipt.image_url && (
+                  {activeReceipt.has_image && (
                     <button
-                      onClick={() => setModalImage(activeReceipt.image_url)}
+                      onClick={() => handleOpenImage(activeReceipt.id)}
                       className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200"
                     >
                       Open <ExternalLink className="w-3 h-3"/>
@@ -926,18 +953,16 @@ export default function App() {
                   )}
                 </div>
 
-                {activeReceipt.image_url ? (
+                {/* UPDATED ACTIVE RECEIPT PLACEHOLDER */}
+                {activeReceipt.has_image ? (
                   <div 
-                    onClick={() => setModalImage(activeReceipt.image_url)}
-                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 max-h-[65vh] overflow-y-auto cursor-pointer group relative"
+                    onClick={() => handleOpenImage(activeReceipt.id)}
+                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group relative flex items-center justify-center p-8 hover:bg-neutral-100 transition-colors"
                   >
-                    <img
-                      src={activeReceipt.image_url}
-                      alt={activeReceipt.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
-                    />
+                    <div className="text-center space-y-2">
+                      <Receipt className="w-12 h-12 text-neutral-300 mx-auto" />
+                      <p className="text-sm font-medium text-neutral-500">Click to view attached photo</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
@@ -951,29 +976,24 @@ export default function App() {
                   <Receipt className="w-4 h-4 text-black"/> Event Photos
                 </h2>
                 <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
-                  {eventData?.receipts?.filter(r => r.image_url).length > 0 ? (
-                    eventData.receipts.map(r => r.image_url && (
+                  {eventData?.receipts?.filter(r => r.has_image).length > 0 ? (
+                    eventData.receipts.map(r => r.has_image && (
                       <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
                         <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
                           <span className="text-xs font-bold text-black">{r.title}</span>
                           <button
-                            onClick={() => setModalImage(r.image_url)}
+                            onClick={() => handleOpenImage(r.id)}
                             className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200"
                           >
                             Open <ExternalLink className="w-3 h-3"/>
                           </button>
                         </div>
+                        {/* UPDATED SIDEBAR PLACEHOLDER */}
                         <div 
-                          onClick={() => setModalImage(r.image_url)}
-                          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group"
+                          onClick={() => handleOpenImage(r.id)}
+                          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group p-6 flex justify-center hover:bg-neutral-100 transition-colors"
                         >
-                          <img
-                            src={r.image_url}
-                            alt={r.title}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity"
-                          />
+                           <Receipt className="w-10 h-10 text-neutral-300" />
                         </div>
                       </div>
                     ))
@@ -1072,20 +1092,21 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  {isSharedView && eventData?.receipts?.filter(r => r.image_url).length > 0 && (
+                  {isSharedView && eventData?.receipts?.filter(r => r.has_image).length > 0 && (
                     <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                       <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                         <Receipt className="w-4 h-4 text-black"/> Attached Receipts
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {eventData.receipts.map(r => r.image_url && (
-                          <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => setModalImage(r.image_url)}>
+                        {eventData.receipts.map(r => r.has_image && (
+                          <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => handleOpenImage(r.id)}>
                             <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
                               <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
                               <ExternalLink className="w-3 h-3 text-neutral-400" />
                             </div>
-                            <div className="flex-1 flex items-center justify-center p-2">
-                              <img src={r.image_url} alt={r.title} loading="lazy" decoding="async" className="max-h-64 w-auto object-contain group-hover:opacity-95 transition-opacity rounded" />
+                            {/* UPDATED SHARED VIEW THUMBNAIL */}
+                            <div className="flex-1 flex items-center justify-center p-6 group-hover:bg-neutral-100 transition-colors">
+                              <Receipt className="w-12 h-12 text-neutral-300" />
                             </div>
                           </div>
                         ))}
@@ -1382,7 +1403,6 @@ export default function App() {
           ) : (
             <div className="space-y-6">
 
-              {/* CLEAN BLACK LABEL RESTORED HERE */}
               {currentEventId && eventData && (
                 <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-5 py-3.5 shadow-sm mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-bold tracking-tight text-white">{eventData.name}</h2>
@@ -1474,9 +1494,10 @@ export default function App() {
                       <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-neutral-800 gap-3">
                           <div className="flex items-center gap-3">
-                            {r.image_url && (
-                              <button onClick={() => setModalImage(r.image_url)} className="focus:outline-none shrink-0">
-                                <img src={r.image_url} alt={r.title} className="w-12 h-12 object-cover rounded-lg border border-neutral-300 hover:opacity-80 transition-opacity" title="Click to view full image" />
+                            {/* UPDATED LIST ICON */}
+                            {r.has_image && (
+                              <button onClick={() => handleOpenImage(r.id)} className="focus:outline-none shrink-0 bg-neutral-100 p-3 rounded-lg border border-neutral-200 hover:bg-neutral-200 transition-colors" title="Click to view full image">
+                                <Receipt className="w-6 h-6 text-neutral-500" />
                               </button>
                             )}
                             <div>
