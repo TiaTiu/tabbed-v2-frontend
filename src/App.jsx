@@ -1062,31 +1062,7 @@ export default function App() {
               </div>
             ) : currentView === 'summary' && currentEventId ? (
               <div className="space-y-4 sticky top-24">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-black"/> Event Photos
-                </h2>
-                <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
-                  {eventData?.receipts?.filter(checkHasImage).length > 0 ? (
-                    eventData.receipts.map(r => checkHasImage(r) && (
-                      <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
-                        <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
-                          <span className="text-xs font-bold text-black">{r.title}</span>
-                          <button
-                            onClick={() => handleOpenImage(r.id)}
-                            className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200"
-                          >
-                            Open <ExternalLink className="w-3 h-3"/>
-                          </button>
-                        </div>
-                        <ReceiptPhotoCard receipt={r} onOpenImage={handleOpenImage} />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
-                      No receipt photos available.
-                    </div>
-                  )}
-                </div>
+                {/* Event Photos section removed from summary view sidebar */}
               </div>
             ) : (
               <>
