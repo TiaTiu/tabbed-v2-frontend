@@ -915,8 +915,9 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-4 pb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">TABBED BY</span><span className="text-xs font-semibold uppercase tracking-wider text-black ml-1">TIARA</span>
+            <div className="text-center pt-4 pb-2 flex items-baseline justify-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">TABBED BY</span>
+              <span className="text-2xl font-black uppercase text-black tracking-tight">TIARA</span>
             </div>
           </div>
         </div>
