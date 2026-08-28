@@ -1158,10 +1158,10 @@ export default function App() {
             <div id="receipt-summary-card" className={`space-y-6 bg-white rounded-3xl ${isSharedView ? 'max-w-4xl mx-auto' : 'p-2 sm:p-4'}`}>
               
               {isSharedView && (
-                <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl px-6 py-4 shadow-md flex items-center justify-between">
+                <div className="bg-neutral-900 text-white border border-neutral-800 rounded-xl px-5 py-3 shadow-sm flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight">{eventData?.name || 'Final Bill'}</h2>
-                    <p className="text-xs text-neutral-400 mt-0.5">Here is the breakdown of what everyone owes.</p>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider">{eventData?.name || 'Final Bill'}</h2>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Here is the breakdown of what everyone owes.</p>
                   </div>
                   <div className="hidden sm:block">
                     <Receipt className="w-8 h-8 text-neutral-500 opacity-50"/>
@@ -1488,8 +1488,8 @@ export default function App() {
             <div className="space-y-6">
 
               {currentEventId && eventData && (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-5 py-3.5 shadow-sm mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold tracking-tight text-white">{eventData.name}</h2>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl px-5 py-2.5 shadow-sm mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-white">{eventData.name}</h2>
                   <button
                     onClick={(e) => handleDeleteEvent(e, currentEventId)}
                     className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
