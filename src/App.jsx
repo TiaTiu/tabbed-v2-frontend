@@ -915,13 +915,16 @@ export default function App() {
               </div>
             </div>
             
-            <div className="text-center pt-4 pb-2">
-              <span className="text-xl font-semibold text-neutral-400 tracking-wide">
-                Tabbed by
-              </span>
-              <strong className="text-neutral-900 font-black tracking-tighter text-4xl ml-2">
-                Tiara
-              </strong>
+            <div className="mt-4 flex justify-center pb-2">
+              <div className="inline-flex items-center gap-2.5 bg-neutral-100/80 border border-neutral-200/60 px-4 py-2.5 rounded-full shadow-sm">
+                <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center shadow-sm">
+                  <Receipt className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex items-baseline gap-1.5 pr-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tabbed By</span>
+                  <span className="text-lg font-black tracking-tighter text-black">Tiara</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
