@@ -4,6 +4,14 @@ import { toBlob } from 'html-to-image';
 
 const API_URL = "https://tabbed-v2-backend-production.up.railway.app";
 
+const checkHasImage = (receipt) => {
+  if (!receipt || receipt.has_image === undefined || receipt.has_image === null) return false;
+  return receipt.has_image === true || 
+         receipt.has_image === 1 || 
+         String(receipt.has_image).toLowerCase() === 'true' || 
+         String(receipt.has_image) === '1';
+};
+
 const getOrCreateUserToken = () => {
   let token = localStorage.getItem('tabbed_user_token');
   if (!token) {
@@ -685,7 +693,6 @@ export default function App() {
     }
   };
 
-  // --- NEW LAZY FETCHING FUNCTION ---
   const handleOpenImage = async (receiptId) => {
     setModalImage("loading");
     try {
@@ -859,7 +866,6 @@ export default function App() {
               </button>
             </div>
             
-            {/* UPDATED LOADING SPINNER FOR LAZY IMAGE */}
             <div className="p-6 overflow-y-auto max-h-[80vh] bg-neutral-50 flex justify-center items-center min-h-[300px]">
               {modalImage === "loading" ? (
                 <div className="flex flex-col items-center gap-3">
@@ -943,7 +949,7 @@ export default function App() {
                   <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
                     <Receipt className="w-3.5 h-3.5 text-black"/> Original Receipt
                   </span>
-                  {activeReceipt.has_image && (
+                  {checkHasImage(activeReceipt) && (
                     <button
                       onClick={() => handleOpenImage(activeReceipt.id)}
                       className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200"
@@ -953,22 +959,20 @@ export default function App() {
                   )}
                 </div>
 
-                {/* UPDATED ACTIVE RECEIPT PLACEHOLDER */}
-                {activeReceipt.has_image ? (
-  <div 
-    onClick={() => handleOpenImage(activeReceipt.id)}
-    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
-  >
-    {activeReceipt.thumbnail_url ? (
-      <img src={activeReceipt.thumbnail_url} alt={activeReceipt.title} className="w-full h-48 object-cover" />
-    ) : (
-      <div className="text-center space-y-2 p-8">
-        <Receipt className="w-12 h-12 text-neutral-300 mx-auto" />
-        <p className="text-sm font-medium text-neutral-500">Click to view attached photo</p>
-      </div>
-    )}
-  </div>
-) : (
+                {checkHasImage(activeReceipt) ? (
+                  <div 
+                    onClick={() => handleOpenImage(activeReceipt.id)}
+                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+                  >
+                    {activeReceipt.thumbnail_url ? (
+                      <img src={activeReceipt.thumbnail_url} alt={activeReceipt.title} className="w-full h-48 object-cover" />
+                    ) : (
+                      <div className="text-center space-y-2 p-8">
+                        <Receipt className="w-12 h-12 text-neutral-300 mx-auto" />
+                        <p className="text-sm font-medium text-neutral-500">Click to view attached photo</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
                     No image photo available
@@ -981,8 +985,8 @@ export default function App() {
                   <Receipt className="w-4 h-4 text-black"/> Event Photos
                 </h2>
                 <div className="max-h-[75vh] overflow-y-auto pr-2 space-y-5 pb-8">
-                  {eventData?.receipts?.filter(r => r.has_image).length > 0 ? (
-                    eventData.receipts.map(r => r.has_image && (
+                  {eventData?.receipts?.filter(checkHasImage).length > 0 ? (
+                    eventData.receipts.map(r => checkHasImage(r) && (
                       <div key={r.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs">
                         <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-3">
                           <span className="text-xs font-bold text-black">{r.title}</span>
@@ -993,17 +997,16 @@ export default function App() {
                             Open <ExternalLink className="w-3 h-3"/>
                           </button>
                         </div>
-                        {/* UPDATED SIDEBAR PLACEHOLDER */}
                         <div 
-  onClick={() => handleOpenImage(r.id)}
-  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
->
-  {r.thumbnail_url ? (
-    <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
-  ) : (
-    <div className="p-6 flex justify-center"><Receipt className="w-10 h-10 text-neutral-300" /></div>
-  )}
-</div>
+                          onClick={() => handleOpenImage(r.id)}
+                          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+                        >
+                          {r.thumbnail_url ? (
+                            <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
+                          ) : (
+                            <div className="p-6 flex justify-center"><Receipt className="w-10 h-10 text-neutral-300" /></div>
+                          )}
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -1094,35 +1097,33 @@ export default function App() {
                 </div>
               )}
 
-              {/* Minimal Silent Spinner */}
               {isLoadingEvent && !eventData ? (
                 <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-3xl p-12 flex items-center justify-center min-h-[300px]">
                   <div className="animate-spin w-8 h-8 border-4 border-neutral-200 border-t-neutral-800 rounded-full"></div>
                 </div>
               ) : (
                 <>
-                  {isSharedView && eventData?.receipts?.filter(r => r.has_image).length > 0 && (
+                  {isSharedView && eventData?.receipts?.filter(checkHasImage).length > 0 && (
                     <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                       <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
                         <Receipt className="w-4 h-4 text-black"/> Attached Receipts
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {eventData.receipts.map(r => r.has_image && (
+                        {eventData.receipts.map(r => checkHasImage(r) && (
                           <div key={r.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group flex flex-col" onClick={() => handleOpenImage(r.id)}>
                             <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
                               <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
                               <ExternalLink className="w-3 h-3 text-neutral-400" />
                             </div>
-                            {/* UPDATED SHARED VIEW THUMBNAIL */}
                             <div className="flex-1 group-hover:opacity-90 transition-opacity">
-  {r.thumbnail_url ? (
-    <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
-  ) : (
-    <div className="flex items-center justify-center p-6">
-      <Receipt className="w-12 h-12 text-neutral-300" />
-    </div>
-  )}
-</div>
+                              {r.thumbnail_url ? (
+                                <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
+                              ) : (
+                                <div className="flex items-center justify-center p-6">
+                                  <Receipt className="w-12 h-12 text-neutral-300" />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1509,8 +1510,7 @@ export default function App() {
                       <div key={r.id} className="bg-neutral-50 border border-neutral-200/60 p-4 rounded-xl space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-neutral-800 gap-3">
                           <div className="flex items-center gap-3">
-                            {/* UPDATED LIST ICON */}
-                            {r.has_image && (
+                            {checkHasImage(r) && (
                               <button onClick={() => handleOpenImage(r.id)} className="focus:outline-none shrink-0 bg-neutral-100 p-3 rounded-lg border border-neutral-200 hover:bg-neutral-200 transition-colors" title="Click to view full image">
                                 <Receipt className="w-6 h-6 text-neutral-500" />
                               </button>
