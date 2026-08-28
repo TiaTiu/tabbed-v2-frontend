@@ -40,6 +40,8 @@ export default function App() {
   const [splittingItemId, setSplittingItemId] = useState(null);
   
   const [activeReceiptId, setActiveReceiptId] = useState(null);
+  const [activeReceiptImageUrl, setActiveReceiptImageUrl] = useState(null);
+  const [isLoadingActiveImage, setIsLoadingActiveImage] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [isSharedView, setIsSharedView] = useState(false);
 
@@ -125,6 +127,29 @@ export default function App() {
       window.history.pushState({ path: '/' }, '', '/');
     }
   }, [currentEventId, currentView, isSharedView]);
+
+  useEffect(() => {
+    setActiveReceiptImageUrl(null);
+    if (!activeReceiptId) return;
+
+    const receipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
+    if (!receipt || !checkHasImage(receipt)) return;
+
+    setIsLoadingActiveImage(true);
+    const controller = new AbortController();
+    
+    fetch(`${API_URL}/receipts/${activeReceiptId}/image`, { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => {
+        if (data.image_url) setActiveReceiptImageUrl(data.image_url);
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error("Error auto-loading image:", err);
+      })
+      .finally(() => setIsLoadingActiveImage(false));
+
+    return () => controller.abort();
+  }, [activeReceiptId, eventData]); 
 
   const fetchEventDetails = async (id) => {
     try {
@@ -962,9 +987,16 @@ export default function App() {
                 {checkHasImage(activeReceipt) ? (
                   <div 
                     onClick={() => handleOpenImage(activeReceipt.id)}
-                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity relative"
                   >
-                    {activeReceipt.thumbnail_url ? (
+                    {activeReceiptImageUrl ? (
+                      <img src={activeReceiptImageUrl} alt={activeReceipt.title} className="w-full h-auto max-h-96 object-contain bg-white" />
+                    ) : isLoadingActiveImage ? (
+                      <div className="text-center space-y-3 p-12">
+                        <div className="animate-spin w-6 h-6 border-2 border-neutral-200 border-t-neutral-800 rounded-full mx-auto"></div>
+                        <p className="text-xs font-medium text-neutral-500">Loading receipt image...</p>
+                      </div>
+                    ) : activeReceipt.thumbnail_url ? (
                       <img src={activeReceipt.thumbnail_url} alt={activeReceipt.title} className="w-full h-48 object-cover" />
                     ) : (
                       <div className="text-center space-y-2 p-8">
