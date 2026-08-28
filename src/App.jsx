@@ -916,12 +916,7 @@ export default function App() {
             </div>
             
             <div className="text-center pt-4 pb-2">
-              <span className="text-xl font-semibold text-neutral-400 tracking-wide">
-                TABBED BY
-              </span>
-              <span className="text-xl font-semibold text-black tracking-wide ml-2">
-                TIARA
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">TABBED BY</span><span className="text-xs font-semibold uppercase tracking-wider text-black ml-1">TIARA</span>
             </div>
           </div>
         </div>
