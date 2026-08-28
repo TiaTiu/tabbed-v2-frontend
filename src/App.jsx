@@ -1158,13 +1158,13 @@ export default function App() {
             <div id="receipt-summary-card" className={`space-y-6 bg-white rounded-3xl ${isSharedView ? 'max-w-4xl mx-auto' : 'p-2 sm:p-4'}`}>
               
               {isSharedView && (
-                <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-md flex items-center justify-between">
+                <div className="bg-neutral-900 text-white border border-neutral-800 rounded-2xl px-6 py-4 shadow-md flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">{eventData?.name || 'Final Bill'}</h2>
-                    <p className="text-sm text-neutral-400 mt-1">Here is the breakdown of what everyone owes.</p>
+                    <h2 className="text-xl font-bold tracking-tight">{eventData?.name || 'Final Bill'}</h2>
+                    <p className="text-xs text-neutral-400 mt-0.5">Here is the breakdown of what everyone owes.</p>
                   </div>
                   <div className="hidden sm:block">
-                    <Receipt className="w-10 h-10 text-neutral-500 opacity-50"/>
+                    <Receipt className="w-8 h-8 text-neutral-500 opacity-50"/>
                   </div>
                 </div>
               )}
@@ -1175,29 +1175,6 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  {isSharedView && eventData?.receipts?.filter(checkHasImage).length > 0 && (
-                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-                      <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                        <Receipt className="w-4 h-4 text-black"/> Attached Receipts
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {eventData.receipts.map(r => checkHasImage(r) && (
-                          <div key={r.id} className="border border-neutral-200 bg-neutral-50 rounded-xl overflow-hidden flex flex-col">
-                            <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
-                              <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
-                              <button onClick={() => handleOpenImage(r.id)} className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200">
-                                Open <ExternalLink className="w-3 h-3"/>
-                              </button>
-                            </div>
-                            <div className="p-2">
-                              <ReceiptPhotoCard receipt={r} onOpenImage={handleOpenImage} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
                     <h2 className="text-2xl font-bold text-black tracking-tight mb-6">Participant Breakdown</h2>
                     <div className="space-y-6">
@@ -1311,6 +1288,29 @@ export default function App() {
                       )}
                     </div>
                   </div>
+
+                  {eventData?.receipts?.filter(checkHasImage).length > 0 && (
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-black"/> Attached Receipts
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {eventData.receipts.map(r => checkHasImage(r) && (
+                          <div key={r.id} className="border border-neutral-200 bg-neutral-50 rounded-xl overflow-hidden flex flex-col">
+                            <div className="p-3 border-b border-neutral-100 bg-white flex justify-between items-center">
+                              <span className="text-xs font-bold text-black truncate pr-2">{r.title}</span>
+                              <button onClick={() => handleOpenImage(r.id)} className="text-xs font-medium text-black hover:underline flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded-md border border-neutral-200">
+                                Open <ExternalLink className="w-3 h-3"/>
+                              </button>
+                            </div>
+                            <div className="p-2">
+                              <ReceiptPhotoCard receipt={r} onOpenImage={handleOpenImage} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
