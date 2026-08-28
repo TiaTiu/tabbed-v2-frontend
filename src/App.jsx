@@ -955,15 +955,20 @@ export default function App() {
 
                 {/* UPDATED ACTIVE RECEIPT PLACEHOLDER */}
                 {activeReceipt.has_image ? (
-                  <div 
-                    onClick={() => handleOpenImage(activeReceipt.id)}
-                    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group relative flex items-center justify-center p-8 hover:bg-neutral-100 transition-colors"
-                  >
-                    <div className="text-center space-y-2">
-                      <Receipt className="w-12 h-12 text-neutral-300 mx-auto" />
-                      <p className="text-sm font-medium text-neutral-500">Click to view attached photo</p>
-                    </div>
-                  </div>
+  <div 
+    onClick={() => handleOpenImage(activeReceipt.id)}
+    className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+  >
+    {activeReceipt.thumbnail_url ? (
+      <img src={activeReceipt.thumbnail_url} alt={activeReceipt.title} className="w-full h-48 object-cover" />
+    ) : (
+      <div className="text-center space-y-2 p-8">
+        <Receipt className="w-12 h-12 text-neutral-300 mx-auto" />
+        <p className="text-sm font-medium text-neutral-500">Click to view attached photo</p>
+      </div>
+    )}
+  </div>
+) : (
                 ) : (
                   <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
                     No image photo available
@@ -990,11 +995,15 @@ export default function App() {
                         </div>
                         {/* UPDATED SIDEBAR PLACEHOLDER */}
                         <div 
-                          onClick={() => handleOpenImage(r.id)}
-                          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group p-6 flex justify-center hover:bg-neutral-100 transition-colors"
-                        >
-                           <Receipt className="w-10 h-10 text-neutral-300" />
-                        </div>
+  onClick={() => handleOpenImage(r.id)}
+  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+>
+  {r.thumbnail_url ? (
+    <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
+  ) : (
+    <div className="p-6 flex justify-center"><Receipt className="w-10 h-10 text-neutral-300" /></div>
+  )}
+</div>
                       </div>
                     ))
                   ) : (
@@ -1105,9 +1114,15 @@ export default function App() {
                               <ExternalLink className="w-3 h-3 text-neutral-400" />
                             </div>
                             {/* UPDATED SHARED VIEW THUMBNAIL */}
-                            <div className="flex-1 flex items-center justify-center p-6 group-hover:bg-neutral-100 transition-colors">
-                              <Receipt className="w-12 h-12 text-neutral-300" />
-                            </div>
+                            <div className="flex-1 group-hover:opacity-90 transition-opacity">
+  {r.thumbnail_url ? (
+    <img src={r.thumbnail_url} alt={r.title} className="w-full h-40 object-cover" />
+  ) : (
+    <div className="flex items-center justify-center p-6">
+      <Receipt className="w-12 h-12 text-neutral-300" />
+    </div>
+  )}
+</div>
                           </div>
                         ))}
                       </div>
