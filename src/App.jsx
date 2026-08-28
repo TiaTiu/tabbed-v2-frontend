@@ -21,6 +21,43 @@ const getOrCreateUserToken = () => {
   return token;
 };
 
+const ReceiptPhotoCard = ({ receipt, onOpenImage }) => {
+  const [imageUrl, setImageUrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!checkHasImage(receipt)) return;
+    setIsLoading(true);
+    fetch(`${API_URL}/receipts/${receipt.id}/image`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.image_url) setImageUrl(data.image_url);
+      })
+      .catch(err => console.error("Error loading summary receipt image:", err))
+      .finally(() => setIsLoading(false));
+  }, [receipt.id]);
+
+  return (
+    <div 
+      onClick={() => onOpenImage(receipt.id)}
+      className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
+    >
+      {imageUrl ? (
+        <img src={imageUrl} alt={receipt.title} className="w-full h-auto max-h-64 object-contain bg-white" />
+      ) : isLoading ? (
+        <div className="p-8 text-center space-y-2">
+          <div className="animate-spin w-5 h-5 border-2 border-neutral-200 border-t-neutral-800 rounded-full mx-auto"></div>
+          <p className="text-xs text-neutral-400">Loading image...</p>
+        </div>
+      ) : receipt.thumbnail_url ? (
+        <img src={receipt.thumbnail_url} alt={receipt.title} className="w-full h-40 object-cover" />
+      ) : (
+        <div className="p-6 flex justify-center"><Receipt className="w-10 h-10 text-neutral-300" /></div>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const [userToken] = useState(getOrCreateUserToken());
   
@@ -747,43 +784,6 @@ export default function App() {
     }
   };
 
-  const ReceiptPhotoCard = ({ receipt }) => {
-    const [imageUrl, setImageUrl] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-      if (!checkHasImage(receipt)) return;
-      setIsLoading(true);
-      fetch(`${API_URL}/receipts/${receipt.id}/image`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.image_url) setImageUrl(data.image_url);
-        })
-        .catch(err => console.error("Error loading summary receipt image:", err))
-        .finally(() => setIsLoading(false));
-    }, [receipt.id]);
-
-    return (
-      <div 
-        onClick={() => handleOpenImage(receipt.id)}
-        className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 cursor-pointer group hover:opacity-90 transition-opacity"
-      >
-        {imageUrl ? (
-          <img src={imageUrl} alt={receipt.title} className="w-full h-auto max-h-64 object-contain bg-white" />
-        ) : isLoading ? (
-          <div className="p-8 text-center space-y-2">
-            <div className="animate-spin w-5 h-5 border-2 border-neutral-200 border-t-neutral-800 rounded-full mx-auto"></div>
-            <p className="text-xs text-neutral-400">Loading image...</p>
-          </div>
-        ) : receipt.thumbnail_url ? (
-          <img src={receipt.thumbnail_url} alt={receipt.title} className="w-full h-40 object-cover" />
-        ) : (
-          <div className="p-6 flex justify-center"><Receipt className="w-10 h-10 text-neutral-300" /></div>
-        )}
-      </div>
-    );
-  };
-
   const isReadyForSummary = (() => {
     if (!eventData?.receipts || eventData.receipts.length === 0) return false;
     let ready = true;
@@ -1078,7 +1078,7 @@ export default function App() {
                             Open <ExternalLink className="w-3 h-3"/>
                           </button>
                         </div>
-                        <ReceiptPhotoCard receipt={r} />
+                        <ReceiptPhotoCard receipt={r} onOpenImage={handleOpenImage} />
                       </div>
                     ))
                   ) : (
@@ -1190,7 +1190,7 @@ export default function App() {
                               </button>
                             </div>
                             <div className="p-2">
-                              <ReceiptPhotoCard receipt={r} />
+                              <ReceiptPhotoCard receipt={r} onOpenImage={handleOpenImage} />
                             </div>
                           </div>
                         ))}
