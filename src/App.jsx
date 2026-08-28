@@ -33,6 +33,7 @@ export default function App() {
   const assignmentsRef = useRef({});
   const debounceTimers = useRef({});
   const abortControllers = useRef({});
+  const fetchedImageIdRef = useRef(null);
 
   const [newEventName, setNewEventName] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
@@ -129,13 +130,21 @@ export default function App() {
   }, [currentEventId, currentView, isSharedView]);
 
   useEffect(() => {
-    setActiveReceiptImageUrl(null);
-    if (!activeReceiptId) return;
+    if (!activeReceiptId) {
+      setActiveReceiptImageUrl(null);
+      fetchedImageIdRef.current = null;
+      return;
+    }
 
     const receipt = eventData?.receipts?.find(r => r.id === activeReceiptId);
     if (!receipt || !checkHasImage(receipt)) return;
 
+    if (fetchedImageIdRef.current === activeReceiptId) return;
+
+    fetchedImageIdRef.current = activeReceiptId;
     setIsLoadingActiveImage(true);
+    setActiveReceiptImageUrl(null);
+
     const controller = new AbortController();
     
     fetch(`${API_URL}/receipts/${activeReceiptId}/image`, { signal: controller.signal })
@@ -144,7 +153,10 @@ export default function App() {
         if (data.image_url) setActiveReceiptImageUrl(data.image_url);
       })
       .catch(err => {
-        if (err.name !== 'AbortError') console.error("Error auto-loading image:", err);
+        if (err.name !== 'AbortError') {
+          console.error("Error auto-loading image:", err);
+          fetchedImageIdRef.current = null; 
+        }
       })
       .finally(() => setIsLoadingActiveImage(false));
 
